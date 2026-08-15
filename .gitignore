@@ -2,3 +2,6 @@ node_modules/
 *.tgz
 *.log
 .DS_Store
+test/*.bak
+test/p0-inside.txt
+test/中文测试.ps1
