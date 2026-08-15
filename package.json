@@ -25,6 +25,10 @@
     "agent"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jilian-dsh/dsh-rule-engine.git"
+  },
   "scripts": {
     "test": "node test/run-all.js",
     "check": "node --check lib/index.js"
