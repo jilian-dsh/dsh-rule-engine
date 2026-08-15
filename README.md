@@ -100,6 +100,22 @@ dsh plugin --profile web add dsh-rule-engine
 6. **输出文本实时拦截**
    受 DSH 官方架构限制，`assistant/message` 无法“拦下不发”，只能事后审计 + 纠正注入；这是平台边界，不是插件能单独突破的。
 
+## 致谢
+
+感谢以下项目与作者的无私开源付出，本项目在开发过程中直接受益：
+
+- **DeepSeek Harness 官方团队（@deepseek-ai）**：提供了 DSH 平台、插件机制与官方文档。
+- **本机已安装插件的作者们**：
+  - dsh-guardian（lonelymoon87）
+  - dsh-visualize（Nagi-ovo）
+  - dsh-usage（kestiny18）
+  - dsh-rules-manager（jilian-dsh）
+  - dsh-vision-router、dsh-super-injector 等未列出的作者
+- **学习参考的社区文档/库作者**：
+  - dsh-handbook（Electricitysheep）
+  - SandBase deepseek-harness-handbook（sandbaseai）
+  - 以及 DSH 官方文档镜像与源码维护者
+
 ## 免责声明
 
 本项目是**个人/社区项目**，**不属于 DeepSeek Harness 官方项目**，与官方无隶属关系。使用风险自负，请在生产环境前充分测试。
