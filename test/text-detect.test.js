@@ -33,9 +33,15 @@ const rule14 = understandRule({
   level: "D",
   body: "- **触发**：汇报/总结。\n- **检查**：一次性完整汇报。\n- **动作**：自证。\n- **豁免**：无。"
 });
+const rule26 = understandRule({
+  index: "26",
+  title: "GitHub Release 发布规范（执行等级：D 自证）",
+  level: "D",
+  body: "- **触发**：发布 DSH 插件到 GitHub Release。\n- **检查**：确认正式 Release Asset。\n- **动作**：自证。\n- **豁免**：内部使用。"
+});
 
 const state = createState();
-state.configs = [rule2, rule7, rule5, rule11, rule14];
+state.configs = [rule2, rule7, rule5, rule11, rule14, rule26];
 const session = getSessionState(state, "s1");
 
 // 时间词未 Get-Date
@@ -73,6 +79,12 @@ assert.ok(hits.some((h) => h.ruleId === "11" && h.reason.includes("思维链")),
 // D 级自证泛化：规则 14 触发
 hits = detectViolations({ configs: state.configs, session, text: "这次总结如下：已完成插件开发" });
 assert.ok(hits.some((h) => h.ruleId === "14"), "generic self-cert for rule14");
+
+// 规则 26：发布/Release 未提正式 Asset → 触发自证；已提 Attach binaries → 不触发
+hits = detectViolations({ configs: state.configs, session, text: "已发布 Release，附件已上传" });
+assert.ok(hits.some((h) => h.ruleId === "26"), "rule26 self-cert triggered");
+hits = detectViolations({ configs: state.configs, session, text: "已通过 Attach binaries 上传正式 Asset" });
+assert.ok(!hits.some((h) => h.ruleId === "26"), "rule26 not triggered when formal asset mentioned");
 
 // extractAssistantText
 const msg = { content: [{ type: "text", text: "hello" }, { type: "image", text: "ignored" }] };

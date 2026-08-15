@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createState, getSessionState } from "../lib/core/state.js";
@@ -51,6 +51,18 @@ const rule12d = understandRule({
   title: "敏感操作授权时序（执行等级：C）",
   level: "C",
   body: "- **触发**：git push/commit、工作区外写入、删除类、改配置。\n- **检查**：无授权证据→拒绝。\n- **动作**：拒绝。\n- **豁免**：无。"
+});
+const rule24 = understandRule({
+  index: "24",
+  title: "插件装配类型确认（执行等级：A 硬拦）",
+  level: "A",
+  body: "- **触发**：新增/修改 DSH 插件装配。\n- **检查**：只有 dsh.bundle 才能加入 bundles。\n- **动作**：拒绝。\n- **豁免**：官方 bundle。"
+});
+const rule25 = understandRule({
+  index: "25",
+  title: "插件变更类工具统一守卫覆盖（执行等级：A 硬拦）",
+  level: "A",
+  body: "- **触发**：开发/维护规则守卫类插件。\n- **检查**：所有变更工具都必须纳入统一守卫。\n- **动作**：拒绝未覆盖变更工具。\n- **豁免**：只读工具。"
 });
 
 function makeState() {
@@ -208,6 +220,28 @@ getSessionState(stateQuestion, "global").turn.questionOnly = true;
 getSessionState(stateQuestion, "global").authorizations.push({ type: "any", pathPrefix: "", at: Date.now(), source: "test" });
 hit = guardDecision(stateQuestion, { name: "edit", arguments: { file_path: "D:/target/file.txt", old_string: "a", new_string: "b" } });
 assert.ok(hit && hit.reason.includes("询问"), "question-only denied");
+
+// 规则 24：dev_install_package 非 bundle 包拒绝，bundle 包放行
+const state24 = createState();
+state24.configs = [rule24];
+const nonBundleDir = mkdtempSync(join(tmpdir(), "dsh-rule-engine-nonbundle-"));
+writeFileSync(join(nonBundleDir, "package.json"), JSON.stringify({ name: "x", dsh: { plugin: { platform: "host" } } }), "utf8");
+hit = guardDecision(state24, { name: "dev_install_package", arguments: { dir: nonBundleDir } });
+assert.ok(hit && hit.ruleId === "24", "non-bundle install denied");
+const bundleDir = mkdtempSync(join(tmpdir(), "dsh-rule-engine-bundle-"));
+writeFileSync(join(bundleDir, "package.json"), JSON.stringify({ name: "x", dsh: { bundle: { patch: "./cordis.patch.yml" } } }), "utf8");
+hit = guardDecision(state24, { name: "dev_install_package", arguments: { dir: bundleDir } });
+assert.equal(hit, null, "bundle install allowed");
+
+// 规则 25：未覆盖的变更工具拒绝，安全/只读工具放行
+const state25 = createState();
+state25.configs = [rule25];
+hit = guardDecision(state25, { name: "run_code", arguments: { code: "writeFileSync('x','y')" } });
+assert.ok(hit && hit.ruleId === "25", "uncovered mutating tool denied");
+hit = guardDecision(state25, { name: "ask_user_question", arguments: { questions: [] } });
+assert.equal(hit, null, "safe tool allowed");
+hit = guardDecision(state25, { name: "read", arguments: { file_path: "C:/x" } });
+assert.equal(hit, null, "read-only allowed");
 
 // bypass 放行
 const state4 = makeState();
