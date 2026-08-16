@@ -92,15 +92,14 @@ assert.ok(hits.some((h) => h.ruleId === "26"), "rule26 self-cert triggered");
 hits = detectViolations({ configs: state.configs, session, text: "已通过 Attach binaries 上传正式 Asset" });
 assert.ok(!hits.some((h) => h.ruleId === "26"), "rule26 not triggered when formal asset mentioned");
 
-// 规则 27：装配 dirty 且未审计时，提“重启/装配”触发自证；已提审计通过则不触发
-session.mountDirty = true;
-session.mountAuditPassed = false;
-hits = detectViolations({ configs: state.configs, session, text: "准备重启 DSH" });
+// 规则 27：全局装配变更且本会话未审计时，提“重启/装配”触发自证；已提审计通过则不触发
+session.mountAuditRevision = 0;
+hits = detectViolations({ configs: state.configs, session, text: "准备重启 DSH", mountRevision: 1 });
 assert.ok(hits.some((h) => h.ruleId === "27"), "rule27 self-cert triggered when mount dirty");
-hits = detectViolations({ configs: state.configs, session, text: "已跑全量审计通过，MOUNT CONSISTENT，可以重启" });
+session.mountAuditRevision = 1;
+hits = detectViolations({ configs: state.configs, session, text: "已跑全量审计通过，MOUNT CONSISTENT，可以重启", mountRevision: 1 });
 assert.ok(!hits.some((h) => h.ruleId === "27"), "rule27 not triggered when audit passed mentioned");
-session.mountDirty = false;
-hits = detectViolations({ configs: state.configs, session, text: "准备重启 DSH" });
+hits = detectViolations({ configs: state.configs, session, text: "准备重启 DSH", mountRevision: 0 });
 assert.ok(!hits.some((h) => h.ruleId === "27"), "rule27 not triggered when mount clean");
 
 // extractAssistantText
