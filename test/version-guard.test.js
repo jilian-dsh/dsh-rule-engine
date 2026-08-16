@@ -72,4 +72,13 @@ res = validateEditedFile(
 );
 assert.equal(res.ok, true, "deletion (substring) should pass");
 
+// 版本记录行内仅版本号变更（重编号）应放行
+res = validateEditedFile(
+  "| v3.41 | 2026-08-16 | old |\n",
+  "| v3.42 | 2026-08-16 | old |\n",
+  "| v3.41 | 2026-08-16 | old |",
+  "| v3.42 | 2026-08-16 | old |"
+);
+assert.equal(res.ok, true, "version renumber should pass");
+
 console.log("version-guard.test.js PASS");
