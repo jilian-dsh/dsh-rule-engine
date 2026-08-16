@@ -107,9 +107,9 @@ markManualRead(state, "global");
 getSessionState(state, "global").turn.toolCount = 1;
 
 // 规则 9：含中文 .ps1 未按 UTF-8 带 BOM
-hit = guardDecision(state, { name: "write", arguments: { file_path: "D:/DeepSeek harness/dsh-project/rule-guard-dev/dsh-rule-engine/test/中文.ps1", content: "Write-Output '中文'" } });
+hit = guardDecision(state, { name: "write", arguments: { file_path: "D:/DeepSeek harness/dsh-project/projects/rule-guard-dev/dsh-rule-engine/test/中文.ps1", content: "Write-Output '中文'" } });
 assert.ok(hit && hit.ruleId === "9", "deny Chinese ps1 write");
-hit = guardDecision(state, { name: "write", arguments: { file_path: "D:/DeepSeek harness/dsh-project/rule-guard-dev/dsh-rule-engine/test/ok.ps1", content: "Write-Output 'ascii'" } });
+hit = guardDecision(state, { name: "write", arguments: { file_path: "D:/DeepSeek harness/dsh-project/projects/rule-guard-dev/dsh-rule-engine/test/ok.ps1", content: "Write-Output 'ascii'" } });
 assert.equal(hit, null, "allow ascii ps1 write");
 hit = guardDecision(state, { name: "pwsh", arguments: { command: "Set-Content -Path x.ps1 -Value '中文'" } });
 assert.ok(hit && hit.ruleId === "9", "deny Chinese ps1 command without BOM");
@@ -144,11 +144,11 @@ assert.ok(hit && hit.ruleId === "13A" && hit.reason.includes("不存在"), "back
 
 // 含空格引号路径：备份记录完整路径，删除命令也应提取完整路径并放行
 const stateQuoted = makeState();
-markBackupSeen(stateQuoted, "global", "D:/DeepSeek harness/dsh-project/_session-repair/session-a.jsonl.zstd");
+markBackupSeen(stateQuoted, "global", "D:/DeepSeek harness/dsh-project/research/_session-repair/session-a.jsonl.zstd");
 markAskSeen(stateQuoted, "global");
 hit = guardDecision(stateQuoted, {
   name: "pwsh",
-  arguments: { command: "Remove-Item -LiteralPath 'D:\\DeepSeek harness\\dsh-project\\_session-repair\\session-a.jsonl.zstd'" }
+  arguments: { command: "Remove-Item -LiteralPath 'D:\\DeepSeek harness\\dsh-project\\research\\_session-repair\\session-a.jsonl.zstd'" }
 });
 assert.equal(hit, null, "quoted path delete allowed with matching backup");
 
@@ -202,7 +202,7 @@ assert.equal(hit, null, "allow config write with unlock");
 
 // 规则 1：重试拦截（基于真实失败计数；失败次数由 tool/result 更新）
 const state3 = makeState();
-const exec = { name: "edit", arguments: { file_path: "D:/DeepSeek harness/dsh-project/rule-guard-dev/dsh-rule-engine/test/x.txt", old_string: "a", new_string: "b" } };
+const exec = { name: "edit", arguments: { file_path: "D:/DeepSeek harness/dsh-project/projects/rule-guard-dev/dsh-rule-engine/test/x.txt", old_string: "a", new_string: "b" } };
 const retryKey = `edit:${JSON.stringify(exec.arguments)}`;
 assert.equal(guardDecision(state3, exec), null, "retry 1 allowed (no failures yet)");
 state3.retryCounts.set(retryKey, 2);
@@ -294,6 +294,57 @@ state27b.mountRevision = 1;
 getSessionState(state27b, "s-other").mountAuditRevision = 1;
 hit = guardDecision(state27b, { name: "dev_install_package", arguments: { dir: "D:/another-bundle" } });
 assert.ok(hit && hit.ruleId === "27", "session without own audit evidence denied");
+
+// 规则 27：装配内容哈希相同，即使 mountRevision 增加也放行
+const state27Sig = createState();
+state27Sig.configs = [rule27];
+state27Sig.mountRevision = 2;
+getSessionState(state27Sig, "global").mountAuditRevision = 1;
+getSessionState(state27Sig, "global").mountAuditSignature = "missing-profile:web";
+hit = guardDecision(state27Sig, { name: "dev_install_package", arguments: { dir: "D:/another-bundle" } });
+assert.equal(hit, null, "same mount signature allows despite revision increase");
+
+// 规则 27：装配内容哈希不同仍拦
+const state27SigDiff = createState();
+state27SigDiff.configs = [rule27];
+state27SigDiff.mountRevision = 2;
+getSessionState(state27SigDiff, "global").mountAuditRevision = 1;
+getSessionState(state27SigDiff, "global").mountAuditSignature = "different-hash";
+hit = guardDecision(state27SigDiff, { name: "dev_install_package", arguments: { dir: "D:/another-bundle" } });
+assert.ok(hit && hit.ruleId === "27", "different mount signature denied");
+
+// 规则 19：dsh-usage-manual/SKILL.md 正文更新免逐次确认
+const stateManual = makeState();
+getSessionState(stateManual, "global").manualReadSeen = true;
+getSessionState(stateManual, "global").turn.toolCount = 1;
+hit = guardDecision(stateManual, { name: "edit", arguments: { file_path: "D:/DeepSeek harness/.dsh/skills/dsh-usage-manual/SKILL.md", old_string: "a", new_string: "b" } });
+assert.equal(hit, null, "manual SKILL.md edit exempt from 12A");
+hit = guardDecision(stateManual, { name: "edit", arguments: { file_path: "D:/DeepSeek harness/.dsh/other.txt", old_string: "a", new_string: "b" } });
+assert.ok(hit && (hit.ruleId === "12D" || hit.ruleId === "12A"), "non-manual outside workspace still denied");
+
+// 规则 24：link 依赖可推断 bundle 类型
+const state24Link = createState();
+state24Link.configs = [rule24];
+const linkRoot = mkdtempSync(join(tmpdir(), "dsh-rule-engine-link-"));
+const linkProfile = join(linkRoot, "profiles", "web");
+mkdirSync(linkProfile, { recursive: true });
+const linkPkgDir = join(linkRoot, "packages", "link-pkg");
+mkdirSync(linkPkgDir, { recursive: true });
+writeFileSync(join(linkPkgDir, "package.json"), JSON.stringify({ name: "link-pkg", dsh: { bundle: { patch: "./cordis.patch.yml" } } }), "utf8");
+const linkPkgPath = join(linkProfile, "package.json");
+const linkContent = JSON.stringify({ dependencies: { "link-pkg": "link:../../packages/link-pkg" }, dsh: { profile: { bundles: ["link-pkg"] } } });
+hit = guardDecision(state24Link, { name: "write", arguments: { file_path: linkPkgPath, content: linkContent } });
+assert.equal(hit, null, "link dependency bundle allowed");
+
+// 规则 24：版本声明且包未安装 → 拒绝并给出明确下一步
+const state24Ver = createState();
+state24Ver.configs = [rule24];
+const verProfile = join(linkRoot, "profiles", "ver");
+mkdirSync(verProfile, { recursive: true });
+const verPkgPath = join(verProfile, "package.json");
+const verContent = JSON.stringify({ dependencies: { "missing-pkg": "^1.0.0" }, dsh: { profile: { bundles: ["missing-pkg"] } } });
+hit = guardDecision(state24Ver, { name: "write", arguments: { file_path: verPkgPath, content: verContent } });
+assert.ok(hit && hit.ruleId === "24" && hit.reason.includes("请先用 dev_install_package"), "version dep with missing package denied with next-step hint");
 
 // bypass 放行
 const state4 = makeState();
