@@ -64,6 +64,12 @@ const rule25 = understandRule({
   level: "A",
   body: "- **触发**：开发/维护规则守卫类插件。\n- **检查**：所有变更工具都必须纳入统一守卫。\n- **动作**：拒绝未覆盖变更工具。\n- **豁免**：只读工具。"
 });
+const rule27 = understandRule({
+  index: "27",
+  title: "插件挂载唯一性与重启前全量审计（执行等级：C+D）",
+  level: "C+D",
+  body: "- **触发**：新增/修改/移除/升级 DSH 插件装配；或准备重启。\n- **检查**：装配变更后先跑全量审计；重启前有审计通过记录。\n- **动作**：缺审计通过记录先跑审计；审计发现重复停止装配/重启。\n- **豁免**：官方 bundle 自身装配；只读查看装配。"
+});
 
 function makeState() {
   const state = createState();
@@ -242,6 +248,20 @@ hit = guardDecision(state25, { name: "ask_user_question", arguments: { questions
 assert.equal(hit, null, "safe tool allowed");
 hit = guardDecision(state25, { name: "read", arguments: { file_path: "C:/x" } });
 assert.equal(hit, null, "read-only allowed");
+
+// 规则 27：装配变更后未审计 → 继续装配被拒；审计通过后放行
+const state27 = createState();
+state27.configs = [rule27];
+hit = guardDecision(state27, { name: "dev_install_package", arguments: { dir: "D:/some-bundle" } });
+assert.equal(hit, null, "first assembly mutation allowed when clean");
+getSessionState(state27, "global").mountDirty = true;
+hit = guardDecision(state27, { name: "dev_install_package", arguments: { dir: "D:/another-bundle" } });
+assert.ok(hit && hit.ruleId === "27", "assembly mutation denied while audit pending");
+hit = guardDecision(state27, { name: "read", arguments: { file_path: "C:/x" } });
+assert.equal(hit, null, "read-only allowed while audit pending");
+getSessionState(state27, "global").mountAuditPassed = true;
+hit = guardDecision(state27, { name: "dev_install_package", arguments: { dir: "D:/another-bundle" } });
+assert.equal(hit, null, "assembly mutation allowed after audit pass");
 
 // bypass 放行
 const state4 = makeState();

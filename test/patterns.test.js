@@ -1,5 +1,12 @@
 import assert from "node:assert/strict";
-import { extractCopyPaths, backupPathsFromTool } from "../lib/core/patterns.js";
+import {
+  auditOutputFailed,
+  auditOutputPassed,
+  backupPathsFromTool,
+  extractCopyPaths,
+  isAssemblyMutationTool,
+  isAuditCommand
+} from "../lib/core/patterns.js";
 
 // 带空格引号路径
 const cmd = "Copy-Item -LiteralPath 'D:\\DeepSeek harness\\a.jsonl.zstd' -Destination 'D:\\DeepSeek harness\\b.jsonl.zstd' -Force";
@@ -22,5 +29,16 @@ assert.ok(bp2.backupPath.includes("DeepSeek harness"), "backup path keeps spaces
 // 相对/截断路径不再记录（避免脏备份记录）
 const bad = backupPathsFromTool("pwsh", { command: "Copy-Item 'relative/file' 'relative/backup'" });
 assert.equal(bad, null, "relative paths not recorded");
+
+// 规则 27 辅助函数
+assert.equal(isAssemblyMutationTool("dev_install_package", { dir: "D:/x" }), true, "dev_install_package is assembly mutation");
+assert.equal(isAssemblyMutationTool("dev_inject_plugin", { dir: "D:/x" }), true, "dev_inject_plugin is assembly mutation");
+assert.equal(isAssemblyMutationTool("read", { file_path: "D:/x" }), false, "read is not assembly mutation");
+assert.equal(isAssemblyMutationTool("edit", { file_path: "D:/DeepSeek harness/.dsh/profiles/web/cordis.patch.yml", old_string: "a", new_string: "b" }), true, "edit cordis.patch.yml is assembly mutation");
+assert.equal(isAssemblyMutationTool("pwsh", { command: "Set-Content -Path cordis.patch.yml -Value 'x'" }), true, "pwsh writing cordis.patch.yml is assembly mutation");
+assert.equal(isAuditCommand("node _extract/audit-mount-consistency.mjs --profile web"), true, "audit command detected");
+assert.equal(auditOutputPassed("RESULT: MOUNT CONSISTENT — SAFE TO RESTART"), true, "audit pass detected");
+assert.equal(auditOutputPassed("RESULT: DUPLICATES FOUND — MUST FIX BEFORE RESTART"), false, "duplicates not pass");
+assert.equal(auditOutputFailed("RESULT: DUPLICATES FOUND — MUST FIX BEFORE RESTART"), true, "duplicates detected");
 
 console.log("patterns.test.js PASS");
