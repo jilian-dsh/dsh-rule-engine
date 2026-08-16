@@ -81,4 +81,40 @@ res = validateEditedFile(
 );
 assert.equal(res.ok, true, "version renumber should pass");
 
+// 非表格单行修改应放行（整行替换但行首锚点一致）
+res = validateEditedFile(
+  "- **动作**：违规项自证说明。\n",
+  "- **动作**：硬拦项拒绝 + 台账；自证项自证说明。\n",
+  "- **动作**：违规项自证说明。",
+  "- **动作**：硬拦项拒绝 + 台账；自证项自证说明。"
+);
+assert.equal(res.ok, true, "non-table same-line modification should pass");
+
+// 非表格单行替换为不同字段标签应拦截
+res = validateEditedFile(
+  "- **动作**：违规项自证说明。\n",
+  "- **检查**：违规项自证说明。\n",
+  "- **动作**：违规项自证说明。",
+  "- **检查**：违规项自证说明。"
+);
+assert.equal(res.ok, false, "different field label should fail");
+
+// 规则标题同编号修改应放行
+res = validateEditedFile(
+  "### [规则 12A] 执行前确认\n",
+  "### [规则 12A] 执行前确认（含授权证据）\n",
+  "### [规则 12A] 执行前确认",
+  "### [规则 12A] 执行前确认（含授权证据）"
+);
+assert.equal(res.ok, true, "same rule id heading modification should pass");
+
+// 规则标题不同编号替换应拦截
+res = validateEditedFile(
+  "### [规则 12A] 执行前确认\n",
+  "### [规则 12B] 执行前确认\n",
+  "### [规则 12A] 执行前确认",
+  "### [规则 12B] 执行前确认"
+);
+assert.equal(res.ok, false, "different rule id heading should fail");
+
 console.log("version-guard.test.js PASS");
