@@ -3,3 +3,5 @@
 - insert:
     - id: dsh-rule-engine
       name: 'dsh-rule-engine'
+    - id: dsh-rule-engine-service
+      name: 'dsh-rule-engine/lib/service.js'
