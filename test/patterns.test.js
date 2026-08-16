@@ -37,6 +37,7 @@ assert.equal(isAssemblyMutationTool("read", { file_path: "D:/x" }), false, "read
 assert.equal(isAssemblyMutationTool("edit", { file_path: "D:/DeepSeek harness/.dsh/profiles/web/cordis.patch.yml", old_string: "a", new_string: "b" }), true, "edit cordis.patch.yml is assembly mutation");
 assert.equal(isAssemblyMutationTool("pwsh", { command: "Set-Content -Path cordis.patch.yml -Value 'x'" }), true, "pwsh writing cordis.patch.yml is assembly mutation");
 assert.equal(isAuditCommand("node _extract/audit-mount-consistency.mjs --profile web"), true, "audit command detected");
+assert.equal(isAuditCommand("Get-Content _extract/audit-mount-consistency.mjs"), false, "reading audit script is not audit execution");
 assert.equal(auditOutputPassed("RESULT: MOUNT CONSISTENT — SAFE TO RESTART"), true, "audit pass detected");
 assert.equal(auditOutputPassed("RESULT: DUPLICATES FOUND — MUST FIX BEFORE RESTART"), false, "duplicates not pass");
 assert.equal(auditOutputFailed("RESULT: DUPLICATES FOUND — MUST FIX BEFORE RESTART"), true, "duplicates detected");

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createState, getSessionState } from "../lib/core/state.js";
@@ -239,6 +239,21 @@ writeFileSync(join(bundleDir, "package.json"), JSON.stringify({ name: "x", dsh: 
 hit = guardDecision(state24, { name: "dev_install_package", arguments: { dir: bundleDir } });
 assert.equal(hit, null, "bundle install allowed");
 
+// 规则 24：手工编辑 profile package.json 写入非 bundle 也应拒绝
+const state24Manual = createState();
+state24Manual.configs = [rule24];
+const profileRoot = mkdtempSync(join(tmpdir(), "dsh-rule-engine-profile-"));
+const webDir = join(profileRoot, "profiles", "web");
+mkdirSync(join(webDir, "node_modules", "bad-pkg"), { recursive: true });
+writeFileSync(join(webDir, "node_modules", "bad-pkg", "package.json"), JSON.stringify({ name: "bad-pkg", dsh: { plugin: {} } }), "utf8");
+mkdirSync(join(webDir, "node_modules", "good-pkg"), { recursive: true });
+writeFileSync(join(webDir, "node_modules", "good-pkg", "package.json"), JSON.stringify({ name: "good-pkg", dsh: { bundle: { patch: "./cordis.patch.yml" } } }), "utf8");
+const profilePkgPath = join(webDir, "package.json");
+hit = guardDecision(state24Manual, { name: "write", arguments: { file_path: profilePkgPath, content: JSON.stringify({ dsh: { profile: { bundles: ["bad-pkg"] } } }) } });
+assert.ok(hit && hit.ruleId === "24", "manual write non-bundle into bundles denied");
+hit = guardDecision(state24Manual, { name: "write", arguments: { file_path: profilePkgPath, content: JSON.stringify({ dsh: { profile: { bundles: ["good-pkg"] } } }) } });
+assert.equal(hit, null, "manual write bundle into bundles allowed");
+
 // 规则 25：未覆盖的变更工具拒绝，安全/只读工具放行
 const state25 = createState();
 state25.configs = [rule25];
@@ -249,19 +264,36 @@ assert.equal(hit, null, "safe tool allowed");
 hit = guardDecision(state25, { name: "read", arguments: { file_path: "C:/x" } });
 assert.equal(hit, null, "read-only allowed");
 
-// 规则 27：装配变更后未审计 → 继续装配被拒；审计通过后放行
+// 规则 25 扩展：通用执行器已纳入覆盖集合；敏感授权由 12A/12D 负责
+const state25Exec = createState();
+state25Exec.configs = [rule25];
+hit = guardDecision(state25Exec, { name: "dev_stage_add", arguments: { name: "x", execute: "writeFileSync('x','y')" } });
+assert.equal(hit, null, "covered generic executor not denied by rule25");
+const state25ExecAuth = createState();
+state25ExecAuth.configs = [rule12d];
+hit = guardDecision(state25ExecAuth, { name: "dev_stage_call", arguments: { name: "x", args: {} } });
+assert.ok(hit && (hit.ruleId === "12D" || hit.ruleId === "12A"), "generic executor without auth denied by sensitive auth");
+
+// 规则 27：装配变更后未审计 → 继续装配被拒；本会话审计通过后放行；其他会话未审计仍被拒
 const state27 = createState();
 state27.configs = [rule27];
 hit = guardDecision(state27, { name: "dev_install_package", arguments: { dir: "D:/some-bundle" } });
 assert.equal(hit, null, "first assembly mutation allowed when clean");
-getSessionState(state27, "global").mountDirty = true;
+state27.mountRevision = 1;
 hit = guardDecision(state27, { name: "dev_install_package", arguments: { dir: "D:/another-bundle" } });
 assert.ok(hit && hit.ruleId === "27", "assembly mutation denied while audit pending");
 hit = guardDecision(state27, { name: "read", arguments: { file_path: "C:/x" } });
 assert.equal(hit, null, "read-only allowed while audit pending");
-getSessionState(state27, "global").mountAuditPassed = true;
+getSessionState(state27, "global").mountAuditRevision = 1;
 hit = guardDecision(state27, { name: "dev_install_package", arguments: { dir: "D:/another-bundle" } });
-assert.equal(hit, null, "assembly mutation allowed after audit pass");
+assert.equal(hit, null, "assembly mutation allowed after this session audit pass");
+// 另一个会话没有审计证据，即使全局已有人通过，也仍被拒（B 语义）
+const state27b = createState();
+state27b.configs = [rule27];
+state27b.mountRevision = 1;
+getSessionState(state27b, "s-other").mountAuditRevision = 1;
+hit = guardDecision(state27b, { name: "dev_install_package", arguments: { dir: "D:/another-bundle" } });
+assert.ok(hit && hit.ruleId === "27", "session without own audit evidence denied");
 
 // bypass 放行
 const state4 = makeState();
