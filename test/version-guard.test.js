@@ -117,4 +117,49 @@ res = validateEditedFile(
 );
 assert.equal(res.ok, false, "different rule id heading should fail");
 
+// 同一行内短正文修正：行锚点一致即放行（不再卡 8 字符前缀）
+res = validateEditedFile(
+  "- **动作**：a\n",
+  "- **动作**：b\n",
+  "- **动作**：a",
+  "- **动作**：b"
+);
+assert.equal(res.ok, true, "same anchor short line modification should pass");
+
+// 编号列表项同标签正文修正应放行
+res = validateEditedFile(
+  "1. **修正**：错误内容\n",
+  "1. **修正**：正确内容\n",
+  "1. **修正**：错误内容",
+  "1. **修正**：正确内容"
+);
+assert.equal(res.ok, true, "numbered list same-field correction should pass");
+
+// 多行整段重写仍应拦截（安全兜底）
+res = validateEditedFile(
+  "第一行\n第二行\n",
+  "第一行\n修改后的第二行\n",
+  "第一行\n第二行",
+  "第一行\n修改后的第二行"
+);
+assert.equal(res.ok, false, "multi-line rewrite should still be blocked");
+
+// 短行首词相同、后半修正应放行（旧逻辑 8 字符前缀会误拦）
+res = validateEditedFile(
+  "foo a\n",
+  "foo b\n",
+  "foo a",
+  "foo b"
+);
+assert.equal(res.ok, true, "short same-first-word line modification should pass");
+
+// 首词不同的单行替换仍应拦截
+res = validateEditedFile(
+  "foo a\n",
+  "bar a\n",
+  "foo a",
+  "bar a"
+);
+assert.equal(res.ok, false, "different first word should fail");
+
 console.log("version-guard.test.js PASS");
