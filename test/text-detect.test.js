@@ -39,9 +39,15 @@ const rule26 = understandRule({
   level: "D",
   body: "- **触发**：发布 DSH 插件到 GitHub Release。\n- **检查**：确认正式 Release Asset。\n- **动作**：自证。\n- **豁免**：内部使用。"
 });
+const rule27 = understandRule({
+  index: "27",
+  title: "插件挂载唯一性与重启前全量审计（执行等级：C+D）",
+  level: "C+D",
+  body: "- **触发**：新增/修改/移除/升级 DSH 插件装配；或准备重启。\n- **检查**：装配变更后先跑全量审计；重启前有审计通过记录。\n- **动作**：缺审计通过记录先跑审计。\n- **豁免**：官方 bundle 自身装配；只读查看装配。"
+});
 
 const state = createState();
-state.configs = [rule2, rule7, rule5, rule11, rule14, rule26];
+state.configs = [rule2, rule7, rule5, rule11, rule14, rule26, rule27];
 const session = getSessionState(state, "s1");
 
 // 时间词未 Get-Date
@@ -85,6 +91,17 @@ hits = detectViolations({ configs: state.configs, session, text: "已发布 Rele
 assert.ok(hits.some((h) => h.ruleId === "26"), "rule26 self-cert triggered");
 hits = detectViolations({ configs: state.configs, session, text: "已通过 Attach binaries 上传正式 Asset" });
 assert.ok(!hits.some((h) => h.ruleId === "26"), "rule26 not triggered when formal asset mentioned");
+
+// 规则 27：装配 dirty 且未审计时，提“重启/装配”触发自证；已提审计通过则不触发
+session.mountDirty = true;
+session.mountAuditPassed = false;
+hits = detectViolations({ configs: state.configs, session, text: "准备重启 DSH" });
+assert.ok(hits.some((h) => h.ruleId === "27"), "rule27 self-cert triggered when mount dirty");
+hits = detectViolations({ configs: state.configs, session, text: "已跑全量审计通过，MOUNT CONSISTENT，可以重启" });
+assert.ok(!hits.some((h) => h.ruleId === "27"), "rule27 not triggered when audit passed mentioned");
+session.mountDirty = false;
+hits = detectViolations({ configs: state.configs, session, text: "准备重启 DSH" });
+assert.ok(!hits.some((h) => h.ruleId === "27"), "rule27 not triggered when mount clean");
 
 // extractAssistantText
 const msg = { content: [{ type: "text", text: "hello" }, { type: "image", text: "ignored" }] };

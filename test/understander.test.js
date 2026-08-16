@@ -33,4 +33,15 @@ const cfgs = understandAll([rule, { ...rule, index: "2", title: "时间（执行
 assert.equal(cfgs.length, 2);
 assert.equal(cfgs[1].handler, "rule2-time");
 
+const rule27 = understandRule({
+  index: "27",
+  title: "插件挂载唯一性与重启前全量审计（执行等级：C+D）",
+  section: "一、执行与安全",
+  level: "C+D",
+  body: "- **触发**：新增/修改/移除/升级 DSH 插件装配；或准备重启。\n- **检查**：装配变更后先跑全量审计；重启前有审计通过记录。\n- **动作**：缺审计通过记录先跑审计。\n- **豁免**：官方 bundle 自身装配；只读查看装配。"
+});
+assert.equal(rule27.handler, "rule27-mount-audit");
+assert.ok(rule27.actions.includes("ask"));
+assert.ok(rule27.actions.includes("self-certify"));
+
 console.log("understander.test.js PASS");
