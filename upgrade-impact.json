@@ -1,6 +1,19 @@
 {
   "versions": [
     {
+      "version": "0.2.1",
+      "summary": "version-guard 放行非表格单行修改（整行替换但行首锚点一致），避免 edit 工具修改规则正文被误回滚",
+      "impacts": [
+        {
+          "rule": "25",
+          "level": "behavior-change",
+          "description": "validateEditAppend 新增非表格单行替换放行：行首锚点足够长且规则编号一致时允许整行修改；版本表格行仍保持仅重编号放行。"
+        }
+      ],
+      "userRulesUnaffected": true,
+      "notes": "升级只更新规则引擎插件本身，不修改 AGENTS.md / SKILL.md / 用户自定义规则。"
+    },
+    {
       "version": "0.2.0",
       "summary": "规则引擎设置面板、升级检查与影响展示；规则 19/21/22/24/25/27 执行口径升级",
       "impacts": [

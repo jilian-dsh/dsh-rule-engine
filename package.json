@@ -1,6 +1,6 @@
 {
   "name": "dsh-rule-engine",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "DSH 规则执行引擎 v3：容器解析 AGENTS.md + 理解器 + 匹配机 + 执行框架",
   "type": "module",
   "main": "lib/index.js",
