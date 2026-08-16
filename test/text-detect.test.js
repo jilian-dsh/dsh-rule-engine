@@ -57,9 +57,39 @@ const rule27 = understandRule({
   level: "C+D",
   body: "- **触发**：新增/修改/移除/升级 DSH 插件装配；或准备重启。\n- **检查**：装配变更后先跑全量审计；重启前有审计通过记录。\n- **动作**：缺审计通过记录先跑审计。\n- **豁免**：官方 bundle 自身装配；只读查看装配。"
 });
+const rule19 = understandRule({
+  index: "19",
+  title: "知识必沉淀（执行等级：D）",
+  level: "D",
+  body: "- **触发**：学到新 DSH 知识/踩坑/发现手册有误。\n- **检查**：版本记录≠完成，须同步正文。\n- **豁免**：无。"
+});
+const rule10 = understandRule({
+  index: "10",
+  title: "新会话上下文恢复（执行等级：D）",
+  level: "D",
+  body: "- **触发**：新会话 / 用户提及旧会话或旧项目。\n- **检查**：如实说明默认不自动继承；按优先级恢复。\n- **豁免**：无。"
+});
+const rule12c = understandRule({
+  index: "12C",
+  title: "下载与网络（执行等级：D）",
+  level: "D",
+  body: "- **触发**：下载外部资源 / 网络访问。\n- **检查**：需代理先告知；下载后校验；排查先测连通性。\n- **豁免**：无。"
+});
+const rule13b = understandRule({
+  index: "13B",
+  title: "会话与提交铁律（执行等级：D 强）",
+  level: "D强",
+  body: "- **触发**：会话文件替换/修复、git 提交。\n- **检查**：三层验证一次跑完。\n- **豁免**：无。"
+});
+const rule15 = understandRule({
+  index: "15",
+  title: "文件版本与处置（执行等级：D）",
+  level: "D",
+  body: "- **触发**：判断文件版本/用途/处置。\n- **检查**：不凭 mtime/文件名判断新旧。\n- **豁免**：无。"
+});
 
 const state = createState();
-state.configs = [rule2, rule7, rule5, rule11, rule14, rule21, rule22, rule26, rule27];
+state.configs = [rule2, rule7, rule5, rule11, rule14, rule21, rule22, rule26, rule27, rule19, rule10, rule12c, rule13b, rule15];
 const session = getSessionState(state, "s1");
 
 // 时间词未 Get-Date
@@ -125,6 +155,24 @@ hits = detectViolations({ configs: state.configs, session, text: "抱歉，我�
 assert.ok(hits.some((h) => h.ruleId === "22"), "rule22 self-cert triggered for apology without fix");
 hits = detectViolations({ configs: state.configs, session, text: "抱歉，原因是... 改正如下... 防再犯机制是..." });
 assert.ok(!hits.some((h) => h.ruleId === "22"), "rule22 not triggered when reason/fix/prevention provided");
+
+// 规则 19⑥：只报版本记录未列正文同步触发；已列正文/说明无需同步不触发
+hits = detectViolations({ configs: state.configs, session, text: "已记入版本记录 v3.66" });
+assert.ok(hits.some((h) => h.ruleId === "19"), "rule19 self-cert triggered for version-record-only");
+hits = detectViolations({ configs: state.configs, session, text: "已记入版本记录 v3.66，正文已同步到第 4 章" });
+assert.ok(!hits.some((h) => h.ruleId === "19"), "rule19 not triggered when body sync mentioned");
+hits = detectViolations({ configs: state.configs, session, text: "只加了版本记录，本次无需同步正文，理由：仅规则正文变更" });
+assert.ok(!hits.some((h) => h.ruleId === "19"), "rule19 not triggered when no-sync reason stated");
+
+// 新增 D 级自证提示：10 / 12C / 13B / 15
+hits = detectViolations({ configs: state.configs, session, text: "新会话默认不继承，我先恢复旧项目" });
+assert.ok(hits.some((h) => h.ruleId === "10"), "rule10 self-cert triggered");
+hits = detectViolations({ configs: state.configs, session, text: "开始下载，可能需要 Clash" });
+assert.ok(hits.some((h) => h.ruleId === "12C"), "rule12C self-cert triggered");
+hits = detectViolations({ configs: state.configs, session, text: "会话修复完成，fromRestore 已跑" });
+assert.ok(hits.some((h) => h.ruleId === "13B"), "rule13B self-cert triggered");
+hits = detectViolations({ configs: state.configs, session, text: "这个文件版本不确定，先保留" });
+assert.ok(hits.some((h) => h.ruleId === "15"), "rule15 self-cert triggered");
 
 // extractAssistantText
 const msg = { content: [{ type: "text", text: "hello" }, { type: "image", text: "ignored" }] };
