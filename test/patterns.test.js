@@ -52,4 +52,16 @@ assert.equal(writeTargetPathsFromCommand("Copy-Item 'D:\\src\\a.txt' -Destinatio
 assert.deepEqual(absolutePathTokens("Remove-Item -LiteralPath 'D:\\DeepSeek harness\\x\\y.txt'"), ["D:\\DeepSeek harness\\x\\y.txt"], "quoted space path fully extracted");
 assert.equal(writeTargetPathsFromCommand("Set-Content -Path 'D:\\a b\\c.txt' -Value 'x'").join("|"), "D:\\a b\\c.txt", "Set-Content quoted path extracted");
 
+// v3.74：程序路径误判修复——命令首 token 是 .exe 程序，不是文件目标
+assert.deepEqual(absolutePathTokens("& 'D:\\GitHubCLI\\gh.exe' pr create --repo a/b"), [], "gh.exe is executable, not a file target");
+assert.deepEqual(absolutePathTokens("D:\\GitHubCLI\\gh.exe pr create"), [], "bare exe path excluded");
+assert.deepEqual(absolutePathTokens("Copy-Item 'D:\\a\\b.txt' 'D:\\c\\d.txt'"), ["D:\\a\\b.txt", "D:\\c\\d.txt"], "non-exe absolute paths still extracted");
+assert.deepEqual(absolutePathTokens("cmd /c dsh --profile web --dump-config"), [], "cmd.exe not a file target");
+
+// v3.74：审计输出关键字——INCONSISTENT 与 [MISSING] 判定为失败
+assert.equal(auditOutputPassed("RESULT: INCONSISTENT — MUST FIX BEFORE RESTART"), false, "INCONSISTENT not pass");
+assert.equal(auditOutputFailed("RESULT: INCONSISTENT — MUST FIX BEFORE RESTART"), true, "INCONSISTENT detected as fail");
+assert.equal(auditOutputFailed("[MISSING] dsh-rule-engine not in bundles"), true, "MISSING detected as fail");
+assert.equal(auditOutputPassed("RESULT: MOUNT CONSISTENT — SAFE TO RESTART"), true, "consistent still pass");
+
 console.log("patterns.test.js PASS");

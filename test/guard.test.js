@@ -107,9 +107,9 @@ markManualRead(state, "global");
 getSessionState(state, "global").turn.toolCount = 1;
 
 // 规则 9：含中文 .ps1 未按 UTF-8 带 BOM
-hit = guardDecision(state, { name: "write", arguments: { file_path: "D:/DeepSeek harness/dsh-project/projects/rule-guard-dev/dsh-rule-engine/test/中文.ps1", content: "Write-Output '中文'" } });
+hit = guardDecision(state, { name: "write", arguments: { file_path: "D:/DeepSeek harness/dsh-project/projects/oss/dsh-rule-engine/test/中文.ps1", content: "Write-Output '中文'" } });
 assert.ok(hit && hit.ruleId === "9", "deny Chinese ps1 write");
-hit = guardDecision(state, { name: "write", arguments: { file_path: "D:/DeepSeek harness/dsh-project/projects/rule-guard-dev/dsh-rule-engine/test/ok.ps1", content: "Write-Output 'ascii'" } });
+hit = guardDecision(state, { name: "write", arguments: { file_path: "D:/DeepSeek harness/dsh-project/projects/oss/dsh-rule-engine/test/ok.ps1", content: "Write-Output 'ascii'" } });
 assert.equal(hit, null, "allow ascii ps1 write");
 hit = guardDecision(state, { name: "pwsh", arguments: { command: "Set-Content -Path x.ps1 -Value '中文'" } });
 assert.ok(hit && hit.ruleId === "9", "deny Chinese ps1 command without BOM");
@@ -202,7 +202,7 @@ assert.equal(hit, null, "allow config write with unlock");
 
 // 规则 1：重试拦截（基于真实失败计数；失败次数由 tool/result 更新）
 const state3 = makeState();
-const exec = { name: "edit", arguments: { file_path: "D:/DeepSeek harness/dsh-project/projects/rule-guard-dev/dsh-rule-engine/test/x.txt", old_string: "a", new_string: "b" } };
+const exec = { name: "edit", arguments: { file_path: "D:/DeepSeek harness/dsh-project/projects/oss/dsh-rule-engine/test/x.txt", old_string: "a", new_string: "b" } };
 const retryKey = `edit:${JSON.stringify(exec.arguments)}`;
 assert.equal(guardDecision(state3, exec), null, "retry 1 allowed (no failures yet)");
 state3.retryCounts.set(retryKey, 2);
@@ -317,10 +317,18 @@ assert.ok(hit && hit.ruleId === "27", "different mount signature denied");
 const stateManual = makeState();
 getSessionState(stateManual, "global").manualReadSeen = true;
 getSessionState(stateManual, "global").turn.toolCount = 1;
-hit = guardDecision(stateManual, { name: "edit", arguments: { file_path: "D:/DeepSeek harness/.dsh/skills/dsh-usage-manual/SKILL.md", old_string: "a", new_string: "b" } });
+// 用合法的 old/new（new 包含 old，通过写前版本校验）测试 12A 豁免
+hit = guardDecision(stateManual, { name: "edit", arguments: { file_path: "D:/DeepSeek harness/.dsh/skills/dsh-usage-manual/SKILL.md", old_string: "原文行", new_string: "原文行\n新增行" } });
 assert.equal(hit, null, "manual SKILL.md edit exempt from 12A");
 hit = guardDecision(stateManual, { name: "edit", arguments: { file_path: "D:/DeepSeek harness/.dsh/other.txt", old_string: "a", new_string: "b" } });
 assert.ok(hit && (hit.ruleId === "12D" || hit.ruleId === "12A"), "non-manual outside workspace still denied");
+
+// 写前版本校验：SKILL.md 无包含关系的编辑 → __version-guard 拦截（写前而非写后回滚）
+const stateVG = makeState();
+getSessionState(stateVG, "global").manualReadSeen = true;
+getSessionState(stateVG, "global").turn.toolCount = 1;
+hit = guardDecision(stateVG, { name: "edit", arguments: { file_path: "D:/DeepSeek harness/.dsh/skills/dsh-usage-manual/SKILL.md", old_string: "a", new_string: "b" } });
+assert.ok(hit && hit.ruleId === "__version-guard", "pre-write version guard blocks non-containment edit");
 
 // 规则 24：link 依赖可推断 bundle 类型
 const state24Link = createState();
@@ -351,5 +359,24 @@ const state4 = makeState();
 state4.bypassUntil = Date.now() + 60000;
 hit = guardDecision(state4, { name: "pwsh", arguments: { command: "node -e \"x\"" } });
 assert.equal(hit, null, "bypass allows all");
+
+// v3.74：含 $ 变量路径跳过 13A 备份检查（P0-2）
+const stateVar = makeState();
+stateVar.configs = [rule13];
+hit = guardDecision(stateVar, { name: "pwsh", arguments: { command: "Copy-Item 'C:\\x\\a.txt' \"D:\\out\\$ts.bak\"" } });
+assert.equal(hit, null, "variable path skips backup check");
+
+// v3.74：已获授权的操作跳过 13A 机械备份（P1-2）——12A 授权即用户确认
+const stateAuth13 = makeState();
+stateAuth13.configs = [rule13];
+markAskSeen(stateAuth13, "global"); // ask 授权登记（any 类型）
+hit = guardDecision(stateAuth13, { name: "pwsh", arguments: { command: "Move-Item 'D:\\x\\src' 'D:\\x\\dst'" } });
+assert.equal(hit, null, "authorized op skips mechanical backup check");
+
+// v3.74：程序路径误判修复——gh.exe 命令不再被 13A 当写目标（P0-1）
+const stateGh = makeState();
+stateGh.configs = [rule13];
+hit = guardDecision(stateGh, { name: "pwsh", arguments: { command: "& 'D:\\GitHubCLI\\gh.exe' pr create --repo a/b" } });
+assert.equal(hit, null, "gh.exe invocation not treated as file target");
 
 console.log("guard.test.js PASS");
