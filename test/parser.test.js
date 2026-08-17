@@ -42,5 +42,40 @@ assert.ok(elems.trigger.includes("DSH"), "trigger extracted");
 assert.ok(elems.check.includes("grep/read"), "check extracted");
 assert.ok(elems.exemption.includes("读取手册"), "exemption extracted");
 
+// 自由区域测试：区内 `### [规则 F1]` 不解析、`##` 不切换分区，区外规则不受影响
+const sampleFree = `# 测试规则
+
+## 一、执行与安全
+
+### [规则 18] 先查手册再动手（执行等级：A 弱）
+- **触发**：任务涉及 DSH。
+- **动作**：拒绝首次工具调用。
+
+## 五、自由区域（引擎不强制，正常生效）
+
+<!-- free-zone:start -->
+
+### [规则 F1] 中国法律工作守则
+任务涉及中国法律实务时：
+- 所有法律输出均为律师审查草稿。
+
+### [规则 F2] 另一条自由规则
+- 区内内容。
+
+<!-- free-zone:end -->
+
+## 六、区后分区
+
+### [规则 19] 知识必沉淀（执行等级：D）
+- **触发**：学到新知识。
+`;
+writeAgents(dir, sampleFree);
+const r2 = loadRules();
+assert.equal(r2.ok, true, "free-zone loadRules ok");
+assert.equal(r2.rules.length, 2, "free-zone rules should be excluded (only 18 and 19)");
+assert.equal(r2.rules[0].index, "18", "rule 18 still parsed");
+assert.equal(r2.rules[1].index, "19", "rule 19 after zone parsed");
+assert.equal(r2.rules[1].section, "六、区后分区", "section after zone correct, zone ## ignored");
+
 cleanupTempHome(dir);
 console.log("parser.test.js PASS");
