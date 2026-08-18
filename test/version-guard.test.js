@@ -162,4 +162,22 @@ res = validateEditedFile(
 );
 assert.equal(res.ok, false, "different first word should fail");
 
+// 修正版 #4：表格行内单元格修改应放行（插件快照 1.4.5→1.4.6）
+res = validateEditedFile(
+  "| 包名 | 版本 | 说明 |\n| dsh-rules-manager | 1.4.5 | 规则管理 |\n",
+  "| 包名 | 版本 | 说明 |\n| dsh-rules-manager | 1.4.6 | 规则管理 |\n",
+  "| dsh-rules-manager | 1.4.5 | 规则管理 |",
+  "| dsh-rules-manager | 1.4.6 | 规则管理 |"
+);
+assert.equal(res.ok, true, "table row cell replacement should pass");
+
+// 修正版 #5：中间插入多行段落应放行（旧内容所有非空行按序出现在新内容）
+res = validateEditedFile(
+  "第一行\n第三行\n",
+  "第一行\n第二行\n第三行\n",
+  "第一行\n第三行",
+  "第一行\n第二行\n第三行"
+);
+assert.equal(res.ok, true, "ordered middle insertion should pass");
+
 console.log("version-guard.test.js PASS");
