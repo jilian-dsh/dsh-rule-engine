@@ -379,4 +379,13 @@ stateGh.configs = [rule13];
 hit = guardDecision(stateGh, { name: "pwsh", arguments: { command: "& 'D:\\GitHubCLI\\gh.exe' pr create --repo a/b" } });
 assert.equal(hit, null, "gh.exe invocation not treated as file target");
 
+// E3：已有匹配授权时，重复 ask_user_question 被拦截；无授权时不拦截
+const stateE3 = makeState();
+getSessionState(stateE3, "global").authorizations.push({ type: "write", pathPrefix: "d:/target", at: Date.now(), source: "test" });
+hit = guardDecision(stateE3, { name: "ask_user_question", arguments: { questions: [{ question: "是否允许写入 D:/target/file.txt？" }] } });
+assert.ok(hit && hit.ruleId === "__already-authorized", "duplicate ask denied when auth exists");
+const stateE3b = makeState();
+hit = guardDecision(stateE3b, { name: "ask_user_question", arguments: { questions: [{ question: "是否允许写入 D:/target/file.txt？" }] } });
+assert.equal(hit, null, "ask allowed when no matching auth");
+
 console.log("guard.test.js PASS");

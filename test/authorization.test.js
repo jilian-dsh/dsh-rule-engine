@@ -68,4 +68,14 @@ assert.equal(askResultApproved({ answers: [{ selected: ["允许"], custom: "否"
 // describeOp
 assert.ok(describeOp({ type: "write", pathPrefix: "d:/x" }).includes("write"));
 
+// E11：ask 授权记录的是源路径，backup/move 操作目标是目标路径，也应匹配
+const srcAuth = { type: "backup", pathPrefix: "d:/a.txt", at: 1 };
+const backupOp2 = operationOf("pwsh", { command: "Copy-Item -LiteralPath 'D:/a.txt' -Destination 'D:/a.txt.bak' -Force" });
+assert.equal(backupOp2.type, "backup", "copy to .bak is backup type");
+assert.equal(authMatches(srcAuth, backupOp2), true, "source-path auth matches backup op with dest path");
+const moveTrashOp = operationOf("pwsh", { command: "Move-Item 'D:/DeepSeek harness/dsh-project/.dsh-meow' 'D:/DeepSeek harness/dsh-project/.backups/trash-x/.dsh-meow'" });
+assert.equal(moveTrashOp.type, "backup", "move to trash is backup type");
+const trashAuth = { type: "backup", pathPrefix: "d:/deepseek harness/dsh-project/.dsh-meow", at: 1 };
+assert.equal(authMatches(trashAuth, moveTrashOp), true, "source-path auth matches move-to-trash op");
+
 console.log("authorization.test.js PASS");

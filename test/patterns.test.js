@@ -7,6 +7,7 @@ import {
   extractCopyPaths,
   isAssemblyMutationTool,
   isAuditCommand,
+  isHighRiskEntryFile,
   isReadOnlyCommand,
   writeTargetPathsFromCommand
 } from "../lib/core/patterns.js";
@@ -40,6 +41,7 @@ assert.equal(isAssemblyMutationTool("read", { file_path: "D:/x" }), false, "read
 assert.equal(isAssemblyMutationTool("edit", { file_path: "D:/DeepSeek harness/.dsh/profiles/web/cordis.patch.yml", old_string: "a", new_string: "b" }), true, "edit cordis.patch.yml is assembly mutation");
 assert.equal(isAssemblyMutationTool("pwsh", { command: "Set-Content -Path cordis.patch.yml -Value 'x'" }), true, "pwsh writing cordis.patch.yml is assembly mutation");
 assert.equal(isAuditCommand("node _extract/audit-mount-consistency.mjs --profile web"), true, "audit command detected");
+assert.equal(isAuditCommand("node scripts/audit-mount-consistency.mjs --profile web 2>&1 | Select-String -Pattern 'RESULT'"), true, "filtered audit command still detected as audit");
 assert.equal(isAuditCommand("Get-Content _extract/audit-mount-consistency.mjs"), false, "reading audit script is not audit execution");
 assert.equal(auditOutputPassed("RESULT: MOUNT CONSISTENT — SAFE TO RESTART"), true, "audit pass detected");
 assert.equal(auditOutputPassed("RESULT: DUPLICATES FOUND — MUST FIX BEFORE RESTART"), false, "duplicates not pass");
@@ -63,5 +65,35 @@ assert.equal(auditOutputPassed("RESULT: INCONSISTENT — MUST FIX BEFORE RESTART
 assert.equal(auditOutputFailed("RESULT: INCONSISTENT — MUST FIX BEFORE RESTART"), true, "INCONSISTENT detected as fail");
 assert.equal(auditOutputFailed("[MISSING] dsh-rule-engine not in bundles"), true, "MISSING detected as fail");
 assert.equal(auditOutputPassed("RESULT: MOUNT CONSISTENT — SAFE TO RESTART"), true, "consistent still pass");
+
+// 修正版 #1：URL 不能误判为写路径
+assert.deepEqual(
+  absolutePathTokens("curl -o D:\\tmp\\readme.md https://raw.githubusercontent.com/a/b/README.md"),
+  ["D:\\tmp\\readme.md"],
+  "URL scheme token excluded from absolute path extraction"
+);
+assert.deepEqual(
+  absolutePathTokens("Invoke-WebRequest -Uri https://example.com/a -OutFile D:\\tmp\\a.json"),
+  ["D:\\tmp\\a.json"],
+  "URL not treated as path in IWR"
+);
+
+// 修正版 #2：脚本/值字符串里的路径不能当写目标
+assert.deepEqual(
+  writeTargetPathsFromCommand("Set-Content -Path 'D:\\a.txt' -Value \"createRequire('D:/npm-global/x/package.json')\""),
+  ["D:\\a.txt"],
+  "Set-Content target is -Path only, not value string path"
+);
+assert.deepEqual(
+  writeTargetPathsFromCommand("node -e \"createRequire('D:/npm-global/x/package.json')\""),
+  [],
+  "node script content path is not a write target"
+);
+
+// 修正版 #6：高风险运行入口文件识别
+assert.equal(isHighRiskEntryFile("D:\\DeepSeek harness\\dsh-desktop\\main.js"), true, "Electron main.js is high-risk entry");
+assert.equal(isHighRiskEntryFile("D:\\npm-global\\dsh.cmd"), true, "dsh.cmd CLI shim is high-risk entry");
+assert.equal(isHighRiskEntryFile("D:\\npm-global\\node_modules\\@deepseek-ai\\dsh\\lib\\bin.js"), true, "CLI bin.js is high-risk entry");
+assert.equal(isHighRiskEntryFile("D:\\DeepSeek harness\\dsh-project\\projects\\oss\\dsh-rule-engine\\lib\\index.js"), false, "ordinary plugin index.js is not auto high-risk entry");
 
 console.log("patterns.test.js PASS");

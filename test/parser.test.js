@@ -77,5 +77,14 @@ assert.equal(r2.rules[0].index, "18", "rule 18 still parsed");
 assert.equal(r2.rules[1].index, "19", "rule 19 after zone parsed");
 assert.equal(r2.rules[1].section, "六、区后分区", "section after zone correct, zone ## ignored");
 
+// E7：带括号标签的四要素（如“检查（引擎硬拦）”）也能提取
+const elemsParenthetical = extractElements(`- **触发**：触发条件。
+- **检查（引擎硬拦）**：硬拦内容。
+- **检查（自证）**：自证内容。
+- **动作**：动作内容。
+- **豁免**：豁免内容。`);
+assert.ok(elemsParenthetical.check.includes("硬拦内容"), "parenthetical check label extracted");
+assert.ok(elemsParenthetical.action.includes("动作内容"), "action extracted");
+
 cleanupTempHome(dir);
 console.log("parser.test.js PASS");
