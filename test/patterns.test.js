@@ -10,6 +10,7 @@ import {
   isAuditCommand,
   isHighRiskEntryFile,
   isReadOnlyCommand,
+  isSensitiveToolCall,
   writeTargetPathsFromCommand
 } from "../lib/core/patterns.js";
 
@@ -139,5 +140,27 @@ assert.equal(BOM_WRITE.test("Set-Content -Path x.json -Value '{}' -Encoding utf8
 assert.equal(BOM_WRITE.test("Out-File -FilePath x.yaml -Encoding UTF8BOM"), true, "UTF8BOM (case-insensitive) blocked");
 assert.equal(BOM_WRITE.test("Set-Content -Path x.json -Value '{}' -Encoding UTF8"), false, "PS7 utf8 (no BOM) allowed");
 assert.equal(BOM_WRITE.test("Set-Content -Path x.json -Value '{}' -Encoding utf8NoBOM"), false, "utf8NoBOM allowed");
+
+// P0-1c：受保护文件名仅在写类命令中触发敏感判定；纯描述文本（gh release --notes 等）放行
+assert.equal(
+  isSensitiveToolCall("pwsh", { command: 'gh release create v0.4.1 x.tgz --notes "mentions AGENTS.md changes" --repo a/b' }),
+  false,
+  "descriptive AGENTS.md mention in notes is not sensitive"
+);
+assert.equal(
+  isSensitiveToolCall("pwsh", { command: 'echo "AGENTS.md is the rules file"' }),
+  false,
+  "echo of protected name is not sensitive"
+);
+assert.equal(
+  isSensitiveToolCall("pwsh", { command: "Set-Content -Path D:\\x\\AGENTS.md -Value 'x'" }),
+  true,
+  "write-class command touching AGENTS.md still sensitive"
+);
+assert.equal(
+  isSensitiveToolCall("pwsh", { command: "Remove-Item -Path 'D:\\a\\settings.yaml'" }),
+  true,
+  "destructive command touching settings.yaml still sensitive"
+);
 
 console.log("patterns.test.js PASS");
