@@ -86,5 +86,18 @@ const elemsParenthetical = extractElements(`- **触发**：触发条件。
 assert.ok(elemsParenthetical.check.includes("硬拦内容"), "parenthetical check label extracted");
 assert.ok(elemsParenthetical.action.includes("动作内容"), "action extracted");
 
+// P1-4：标题剥离「（来源：…）」后缀，与 rules-manager 解析口径一致
+const sampleSrc = `## 一、执行与安全
+
+### [规则 28] 测试新规则（执行等级：D）（来源：/rules 命令 2026-08-19）
+- **触发**：测试触发。
+`;
+writeAgents(dir, sampleSrc);
+const r3 = loadRules();
+assert.equal(r3.rules.length, 1, "source-suffix rule parsed");
+assert.equal(r3.rules[0].index, "28", "rule 28 parsed");
+assert.equal(r3.rules[0].title, "测试新规则（执行等级：D）", "source suffix stripped from title");
+assert.equal(r3.rules[0].level, "D", "level still extracted after suffix strip");
+
 cleanupTempHome(dir);
 console.log("parser.test.js PASS");

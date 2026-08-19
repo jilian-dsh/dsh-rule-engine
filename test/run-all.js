@@ -10,6 +10,7 @@ const tests = [
   "./consistency.test.js",
   "./silent-error.test.js",
   "./llm-understander.test.js",
+  "./state.test.js",
   "./runtime-smoke.js"
 ];
 

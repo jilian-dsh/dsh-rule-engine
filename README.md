@@ -68,7 +68,7 @@ dsh plugin --profile web add dsh-rule-engine
 - 跨工具一致性：同一敏感操作经 `edit` / `write` / `str_replace_editor` / `pwsh` 必须得到相同拦截/放行结论
 - 命令输出静默错误检测：全 false/0/null 或与上一条完全一致时审计 + 注入提醒，不阻断
 - 技能目录实时联动：`ctx.skills` 目录变化后自动刷新，已禁用/不存在的技能不触发 12B
-- LLM 增量理解：对非 high 置信规则调用 `ctx.llm` 补全结构化理解，失败自动回退模式库
+- LLM 增量理解：对非 high 置信规则调用 `ctx.llm` 补全结构化理解，失败自动回退模式库；AGENTS.md 变化触发重载后会自动补一次增量理解（按规则+版本去重，不重复烧 token）
 - D 级自证泛化：按规则特征触发自证提示，每规则每会话限 3 次
 - 授权记录默认 10 分钟 TTL，无路径的全局授权 TTL 缩短为 2 分钟；可用 `/guard revoke` 撤销
 - 用户直接命令式指令（如“删除这个文件”）也视为授权
@@ -77,6 +77,8 @@ dsh plugin --profile web add dsh-rule-engine
 - LLM 理解按“规则 + AGENTS.md mtime”去重，避免重复烧 token
 - 审计日志：`~/.dsh/rule-engine.log.jsonl`
 - 守卫使用 `ctx.tools.guard()` 单调拒绝，模型无法自行绕过
+- **自由区域（Free Zone）**：AGENTS.md 中 `<!-- free-zone:start -->` / `<!-- free-zone:end -->` 标记框住的区段**整区跳过**（不解析、不产生规则、不硬拦、不审计）——适合放“想生效但不想被机器强制”的软约束（如法律守则）。区内的 `### [规则 F<n>]` 条目由配套插件 dsh-rules-manager 在设置页/`/rules` 中可见可管理。新增自由规则请手动在标记内编写（`/rules add` 只会插入到 free-zone 之前），详见 dsh-rules-manager 的 README「📝 新增一条自由规则（零基础三步）」
+- **禁用规则联动**：dsh-rules-manager 的「禁用规则」存储（`~/.dsh/disabled-rules.json`）会被引擎读取，被禁用的规则标记为 disabled，不参与硬拦/纠察；恢复启用后自动重新生效
 
 ## 当前局限与后续优化路线
 

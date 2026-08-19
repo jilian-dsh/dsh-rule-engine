@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import {
+  BOM_WRITE,
   absolutePathTokens,
   auditOutputFailed,
   auditOutputPassed,
@@ -95,5 +96,48 @@ assert.equal(isHighRiskEntryFile("D:\\DeepSeek harness\\dsh-desktop\\main.js"), 
 assert.equal(isHighRiskEntryFile("D:\\npm-global\\dsh.cmd"), true, "dsh.cmd CLI shim is high-risk entry");
 assert.equal(isHighRiskEntryFile("D:\\npm-global\\node_modules\\@deepseek-ai\\dsh\\lib\\bin.js"), true, "CLI bin.js is high-risk entry");
 assert.equal(isHighRiskEntryFile("D:\\DeepSeek harness\\dsh-project\\projects\\oss\\dsh-rule-engine\\lib\\index.js"), false, "ordinary plugin index.js is not auto high-risk entry");
+
+// P0-1：flag 只取紧邻参数值，不再扫描剩余整条命令——
+// `-Path $var` 后跟的无关只读绝对路径不得被误判为写目标（真实误拦回归）
+assert.deepEqual(
+  writeTargetPathsFromCommand("New-Item -ItemType Directory -Force -Path $c | Out-Null; Get-Item 'D:\\x\\y\\registry-snapshot.json'"),
+  [],
+  "-Path $var must not capture later unrelated read-only path"
+);
+assert.deepEqual(
+  writeTargetPathsFromCommand("Set-Content -Path $p -Value 'D:\\z\\v.txt'"),
+  [],
+  "variable -Path value not resolvable -> no write target"
+);
+// P0-1：紧邻的引号/无引号绝对路径仍然正确提取
+assert.deepEqual(
+  writeTargetPathsFromCommand("Set-Content -Path 'D:\\a b\\c.txt' -Value 'x'"),
+  ["D:\\a b\\c.txt"],
+  "quoted adjacent -Path still extracted"
+);
+assert.deepEqual(
+  writeTargetPathsFromCommand("New-Item -Path D:\\tmp\\x.txt -ItemType File"),
+  ["D:\\tmp\\x.txt"],
+  "unquoted adjacent -Path still extracted"
+);
+// P0-1：copy-item 分支不受影响（仍只取 Destination）
+assert.deepEqual(
+  writeTargetPathsFromCommand("Copy-Item 'D:\\src\\a.txt' -Destination 'D:\\dst\\b.txt'").join("|"),
+  "D:\\dst\\b.txt",
+  "Copy-Item destination still extracted"
+);
+
+// P0-1b：2>&1 / 2>$null 的 stderr 重定向不算写命令（否则只读命令 + 受保护文件名会被 13A 误拦）
+assert.equal(isReadOnlyCommand("Get-Content -Path 'D:\\a\\AGENTS.md' 2>&1"), true, "2>&1 not a write redirect");
+assert.equal(isReadOnlyCommand("Get-Content 'D:\\a\\rule-understanding.json' 2>$null"), true, "2>$null not a write redirect");
+assert.equal(isReadOnlyCommand("Get-Item 'D:\\a\\settings.yaml' -ErrorAction SilentlyContinue"), true, "read-only without redirect still read-only");
+assert.equal(isReadOnlyCommand("echo x > D:\\a.txt"), false, "plain > redirect is a write");
+assert.equal(isReadOnlyCommand("echo x >> D:\\a.txt"), false, "plain >> redirect is a write");
+
+// 规则 9 PS7 语义（2026-08-19）：仅拦显式 utf8BOM；utf8 / utf8NoBOM 均无 BOM，合规
+assert.equal(BOM_WRITE.test("Set-Content -Path x.json -Value '{}' -Encoding utf8BOM"), true, "utf8BOM write blocked");
+assert.equal(BOM_WRITE.test("Out-File -FilePath x.yaml -Encoding UTF8BOM"), true, "UTF8BOM (case-insensitive) blocked");
+assert.equal(BOM_WRITE.test("Set-Content -Path x.json -Value '{}' -Encoding UTF8"), false, "PS7 utf8 (no BOM) allowed");
+assert.equal(BOM_WRITE.test("Set-Content -Path x.json -Value '{}' -Encoding utf8NoBOM"), false, "utf8NoBOM allowed");
 
 console.log("patterns.test.js PASS");

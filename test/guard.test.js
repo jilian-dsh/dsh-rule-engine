@@ -88,9 +88,10 @@ g.turn.userText = "请帮我写插件";
 let hit = guardDecision(state, { name: "pwsh", arguments: { command: "node -e \"console.log(1)\"" } });
 assert.ok(hit && hit.ruleId === "9", "deny inline node -e");
 
-// 规则 9：BOM 写
-hit = guardDecision(state, { name: "pwsh", arguments: { command: "Set-Content -Path x.json -Value '{}' -Encoding UTF8" } });
-assert.ok(hit && hit.ruleId === "9", "deny BOM write");
+// 规则 9：BOM 写（PS7 语义：仅拦显式 utf8BOM；utf8 无 BOM 合规放行——
+// 放行断言放在规则 18「首工具」时序通过之后，避免被 rule18 抢先拦截）
+hit = guardDecision(state, { name: "pwsh", arguments: { command: "Set-Content -Path x.json -Value '{}' -Encoding utf8BOM" } });
+assert.ok(hit && hit.ruleId === "9", "deny explicit utf8BOM write");
 
 // 规则 18：首次工具非手册（只读必须放行，变更类才拦）
 hit = guardDecision(state, { name: "read", arguments: { file_path: "D:/project/a.txt" } });
@@ -106,15 +107,17 @@ assert.equal(hit, null, "manual read allowed");
 markManualRead(state, "global");
 getSessionState(state, "global").turn.toolCount = 1;
 
-// 规则 9：含中文 .ps1 未按 UTF-8 带 BOM
+// 规则 9（PS7 语义）：-Encoding utf8 / utf8NoBOM 均无 BOM，合规放行
+hit = guardDecision(state, { name: "pwsh", arguments: { command: "Set-Content -Path x.json -Value '{}' -Encoding UTF8" } });
+assert.equal(hit, null, "PS7 -Encoding utf8 (no BOM) allowed");
+hit = guardDecision(state, { name: "pwsh", arguments: { command: "Set-Content -Path x.yaml -Value '{}' -Encoding utf8NoBOM" } });
+assert.equal(hit, null, "utf8NoBOM allowed");
+
+// 规则 9（PS7 语义）：含中文 .ps1 无需 BOM——写文件与命令均放行（2026-08-19 移除 PS5.1 残留硬拦）
 hit = guardDecision(state, { name: "write", arguments: { file_path: "D:/DeepSeek harness/dsh-project/projects/oss/dsh-rule-engine/test/中文.ps1", content: "Write-Output '中文'" } });
-assert.ok(hit && hit.ruleId === "9", "deny Chinese ps1 write");
-hit = guardDecision(state, { name: "write", arguments: { file_path: "D:/DeepSeek harness/dsh-project/projects/oss/dsh-rule-engine/test/ok.ps1", content: "Write-Output 'ascii'" } });
-assert.equal(hit, null, "allow ascii ps1 write");
+assert.equal(hit, null, "allow Chinese ps1 write under PS7");
 hit = guardDecision(state, { name: "pwsh", arguments: { command: "Set-Content -Path x.ps1 -Value '中文'" } });
-assert.ok(hit && hit.ruleId === "9", "deny Chinese ps1 command without BOM");
-hit = guardDecision(state, { name: "pwsh", arguments: { command: "Set-Content -Path x.ps1 -Value '中文' -Encoding UTF8" } });
-assert.equal(hit, null, "allow Chinese ps1 command with UTF8 BOM");
+assert.equal(hit, null, "allow Chinese ps1 command without BOM under PS7");
 
 // 规则 13A：删除无备份
 hit = guardDecision(state, { name: "pwsh", arguments: { command: "Remove-Item -Recurse C:/temp/x" } });
