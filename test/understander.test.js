@@ -14,7 +14,7 @@ const rule = {
   level: "A+D",
   body: [
     "- **触发**：任何含中文的脚本/命令。",
-    "- **检查**：拦内联命令（node -e / pwsh -c / node -p）；拦 Set-Content -Encoding UTF8 写 .json。",
+    "- **检查**：拦内联命令（node -e / pwsh -c / node -p）；拦 Set-Content -Encoding utf8BOM 写 .json/.yaml。",
     "- **动作**：硬拦项拒绝 + 台账。",
     "- **豁免**：无。"
   ].join("\n")

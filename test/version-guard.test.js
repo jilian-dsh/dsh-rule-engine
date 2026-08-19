@@ -180,4 +180,22 @@ res = validateEditedFile(
 );
 assert.equal(res.ok, true, "ordered middle insertion should pass");
 
+// 修正版 #7：同一行内仅版本号数字变更应放行（徽章行 version-1.4.3 → version-1.4.7，
+// 文档审计发现：README 徽章更新被版本守卫误拦为"覆盖上一行"）
+res = validateEditedFile(
+  "![version](https://img.shields.io/badge/version-1.4.3-blue)\n",
+  "![version](https://img.shields.io/badge/version-1.4.7-blue)\n",
+  "![version](https://img.shields.io/badge/version-1.4.3-blue)",
+  "![version](https://img.shields.io/badge/version-1.4.7-blue)"
+);
+assert.equal(res.ok, true, "inline version badge change should pass");
+// 同一行内非版本号数字变化仍应拦截（前后缀相同但中间不是版本号语义——保守起见仍按版本号模式放行，这里验证数字之外的改动不误放）
+res = validateEditedFile(
+  "![version](https://img.shields.io/badge/version-1.4.3-blue)\n",
+  "![version](https://img.shields.io/badge/version-1.4.3-green)\n",
+  "![version](https://img.shields.io/badge/version-1.4.3-blue)",
+  "![version](https://img.shields.io/badge/version-1.4.3-green)"
+);
+assert.equal(res.ok, false, "same-version different-suffix change should still fail");
+
 console.log("version-guard.test.js PASS");
