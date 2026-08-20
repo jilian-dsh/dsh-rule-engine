@@ -86,4 +86,4 @@ for (const d of disposers) {
 rmSync(dir, { recursive: true, force: true });
 delete process.env.DSH_HOME;
 
-console.log("runtime-smoke.js PASS");
+console.log("runtime-smoke.mjs PASS");

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createState, reloadRules } from "../lib/core/state.js";
-import { makeTempHome, cleanupTempHome } from "./helpers.js";
+import { makeTempHome, cleanupTempHome } from "./helpers.mjs";
 
 const dir = makeTempHome();
 
