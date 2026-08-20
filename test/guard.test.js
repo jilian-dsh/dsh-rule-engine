@@ -135,6 +135,29 @@ markBackupSeen(stateWrongBackup, "global", "C:/temp/a");
 hit = guardDecision(stateWrongBackup, { name: "pwsh", arguments: { command: "Remove-Item -Recurse C:/temp/b" } });
 assert.ok(hit && hit.ruleId === "13A", "backup of different path does not allow delete");
 
+// P0-1d：Copy-Item 源路径长于目标路径 + -Force + 目标不存在 → 应放行（创建新文件，不要求备份）
+// 注：带 -Force 的 copy 属敏感操作（12D 需授权），先授权再断言 13A 行为；目标路径放在测试工作区（cwd）内
+const longSrcCmd = "Copy-Item 'D:/Comfy-Desktop/ComfyUI-Installs/ComfyUI/ComfyUI/.venv/Lib/site-packages/comfyui_workflow_templates_json/templates/video_minimax_h3_t2v.json' 'D:/DeepSeek harness/dsh-project/projects/oss/dsh-rule-engine/video_minimax_h3_t2v_local_new.json' -Force";
+const stateCopyNew = makeState();
+markAskSeen(stateCopyNew, "global");
+hit = guardDecision(stateCopyNew, { name: "pwsh", arguments: { command: longSrcCmd } });
+assert.equal(hit, null, "copy to non-existing short target allowed even with long source");
+
+// P0-1d：目标为高风险运行入口文件（授权也不豁免 13A 备份检查）且无备份 → 拦，
+// 且提示目标应为 Destination（不是源路径）
+const highRiskTarget = "D:/DeepSeek harness/dsh-desktop/main.js";
+const stateCopyExist = makeState();
+markAskSeen(stateCopyExist, "global");
+hit = guardDecision(stateCopyExist, { name: "pwsh", arguments: { command: `Copy-Item 'D:/Comfy-Desktop/ComfyUI-Installs/ComfyUI/ComfyUI/.venv/Lib/site-packages/comfyui_workflow_templates_json/templates/video_minimax_h3_t2v.json' '${highRiskTarget}' -Force` } });
+assert.ok(hit && hit.ruleId === "13A", "copy over existing high-risk entry without backup denied");
+assert.ok(hit.reason.includes(highRiskTarget.toLowerCase()), "deny reason targets Destination, not source");
+assert.ok(!hit.reason.includes("comfyui_workflow_templates_json"), "source path NOT shown as target");
+
+// P0-1d 回归：Copy-Item 不带 -Force 到不存在目标 → 放行（不进 13A；目标在测试工作区内，路径名不含 -force 子串）
+const stateCopyNoForce = makeState();
+hit = guardDecision(stateCopyNoForce, { name: "pwsh", arguments: { command: "Copy-Item 'D:/a.txt' 'D:/DeepSeek harness/dsh-project/projects/oss/dsh-rule-engine/new-file-copy.json'" } });
+assert.equal(hit, null, "copy without -Force to non-existing target allowed");
+
 // 备份记录存在但备份文件不存在 → 仍拦
 const stateMissingBackup = makeState();
 getSessionState(stateMissingBackup, "global").backups.push({

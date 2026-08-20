@@ -26,6 +26,15 @@ assert.equal(backupOp.type, "backup", "copy to .bak should be backup type");
 const copyWriteOp = operationOf("pwsh", { command: "Copy-Item -LiteralPath 'D:/a.txt' -Destination 'D:/b.txt' -Force" });
 assert.equal(copyWriteOp.type, "write", "copy to non-backup target should be write type");
 
+// P0-1d：Copy-Item 源路径长于目标路径时，pathPrefix 必须取 Destination（真实写目标），
+// 不能按"最长路径"误选源（13A 误拦根因）；pathPrefixes 保留源+目标双候选供授权匹配
+const longSrcOp = operationOf("pwsh", {
+  command: "Copy-Item 'D:/Comfy-Desktop/ComfyUI-Installs/ComfyUI/ComfyUI/.venv/Lib/site-packages/comfyui_workflow_templates_json/templates/video_minimax_h3_t2v.json' 'D:/DeepSeek harness/dsh-project/video_minimax_h3_t2v_local.json' -Force"
+});
+assert.equal(longSrcOp.pathPrefix, "d:/deepseek harness/dsh-project/video_minimax_h3_t2v_local.json", "pathPrefix is Destination even when source is longer");
+assert.equal(longSrcOp.pathPrefixes.length, 2, "pathPrefixes keeps source + destination candidates");
+assert.ok(longSrcOp.pathPrefixes.some((p) => p.includes("comfyui_workflow_templates_json")), "source kept in pathPrefixes for auth matching");
+
 // 文本推断
 assert.equal(inferTypeFromText("授权修改 D:\\dsh-injector-pkg 下文件"), "write");
 assert.equal(inferTypeFromText("允许删除 test/a.txt"), "delete");
