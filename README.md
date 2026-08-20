@@ -22,6 +22,13 @@ DSH 规则执行引擎 v3 的插件实现。它把 `~/.dsh/AGENTS.md` 当作唯�
 
 当前实现以「模式库兜底」为主，LLM 理解器预留扩展点；所有规则均从 AGENTS.md 实时解析。
 
+## 任务契约与反过度工程（可选）
+
+- 默认**关闭**；可在规则引擎设置页开启「任务边界与反过度工程」总开关。
+- 开启后默认**观察模式**，只审计提醒；切到 `armed` 才真正拦截。
+- 弹窗询问默认**关闭**；`askEnabled` 开启后，对依赖/hash 等动作走官方 approval 询问。
+- 支持 `/guard mode|budget|contract|label` 命令。
+
 ## 命令
 
 | 命令 | 作用 |
@@ -35,6 +42,10 @@ DSH 规则执行引擎 v3 的插件实现。它把 `~/.dsh/AGENTS.md` 当作唯�
 | `/guard lock` | 立即恢复全部守卫（取消解锁/放行） |
 | `/guard revoke` | 撤销全部授权记录 |
 | `/guard reload` | 强制重解析 AGENTS.md |
+| `/guard mode <模式>` | 设置任务契约模式（review/answer/change/monitor/watch/off） |
+| `/guard budget ...` | 设置预算（agents=N files=... deps=allow hash=allow） |
+| `/guard contract` | 查看当前任务契约 |
+| `/guard label <id> <label>` | 给审计记录打标（correct/incorrect/inconclusive） |
 
 ## 装配方式
 
