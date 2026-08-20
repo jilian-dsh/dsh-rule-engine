@@ -33,7 +33,7 @@
     "url": "https://github.com/jilian-dsh/dsh-rule-engine.git"
   },
   "scripts": {
-    "test": "node test/run-all.js",
+    "test": "node test/run-all.mjs",
     "check": "node --check lib/index.js",
     "audit:mount": "node scripts/audit-mount-consistency.mjs --profile web"
   },

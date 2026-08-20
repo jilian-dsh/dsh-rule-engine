@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { loadRules, extractElements } from "../lib/core/parser.js";
-import { cleanupTempHome, makeTempHome, writeAgents } from "./helpers.js";
+import { cleanupTempHome, makeTempHome, writeAgents } from "./helpers.mjs";
 
 const dir = makeTempHome();
 const sample = `# 测试规则
