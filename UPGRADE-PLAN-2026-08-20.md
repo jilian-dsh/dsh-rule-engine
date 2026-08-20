@@ -1,7 +1,7 @@
 # dsh-rule-engine 升级方案（基于 stop-that-shit 调研）
 
 > 日期：2026-08-20
-> 状态：已实施（本地热重载通过、测试全绿、装配审计 MOUNT CONSISTENT；待用户确认后发布）
+> 状态：已实施并发布（dsh-rule-engine v0.5.0 + dsh-rules-manager-client v1.4.0；测试全绿、装配审计 MOUNT CONSISTENT）
 > 范围：只读调研 → 升级方案；本文不包含任何装配/配置变更
 
 ## 1. 背景与目标
