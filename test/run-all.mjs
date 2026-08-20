@@ -11,6 +11,9 @@ const tests = [
   "./silent-error.test.mjs",
   "./llm-understander.test.mjs",
   "./state.test.mjs",
+  "./contract.test.mjs",
+  "./overengineering.test.mjs",
+  "./task-contract-guard.test.mjs",
   "./runtime-smoke.mjs"
 ];
 
