@@ -1,6 +1,6 @@
 {
   "name": "dsh-rule-engine",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "DSH 规则执行引擎 v3：容器解析 AGENTS.md + 理解器 + 匹配机 + 执行框架",
   "type": "module",
   "main": "lib/index.js",
@@ -32,14 +32,22 @@
     "type": "git",
     "url": "https://github.com/jilian-dsh/dsh-rule-engine.git"
   },
+  "homepage": "https://github.com/jilian-dsh/dsh-rule-engine",
+  "engines": {
+    "node": ">=22"
+  },
+  "dshCompat": {
+    "min": "0.1.0-rc.3",
+    "max": "0.2.0"
+  },
   "scripts": {
     "test": "node test/run-all.mjs",
     "check": "node --check lib/index.js",
     "audit:mount": "node scripts/audit-mount-consistency.mjs --profile web"
   },
   "peerDependencies": {
-    "@deepseek-ai/dsh-home-paths": ">=0.1.0-rc.3",
-    "@deepseek-ai/dsh-typert-protocol": ">=0.1.0-rc.3"
+    "@deepseek-ai/dsh-home-paths": ">=0.1.0-rc.3 <0.2",
+    "@deepseek-ai/dsh-typert-protocol": ">=0.1.0-rc.3 <0.2"
   },
   "dsh": {
     "bundle": {

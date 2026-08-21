@@ -121,7 +121,6 @@ dsh plugin --profile web add dsh-rule-engine
 - **本机已安装插件的作者们**：
   - dsh-guardian（lonelymoon87）
   - dsh-visualize（Nagi-ovo）
-  - dsh-usage（kestiny18）
   - dsh-rules-manager（jilian-dsh）
   - dsh-vision-router、dsh-super-injector 等未列出的作者
 - **学习参考的社区文档/库作者**：
