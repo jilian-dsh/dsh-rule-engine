@@ -123,6 +123,35 @@ assert.equal(hit, null, "entry channel with multiple abs paths exempt from 13A")
 hit = guardDecision(stateEntry, { name: "pwsh", arguments: { command: "Set-Content -Path 'C:/outside/x.txt' -Value 'x'" } });
 assert.ok(hit && hit.ruleId === "13A", "plain direct write outside still hits 13A");
 
+// 规则 22⑦ 机器化：疑问句 → 变更类工具被拦；同形词（"执行"在"执行方案"中）不豁免；
+// 只读/ask_user_question 放行；非疑问句+指令词（"执行吧"）放行
+const rule22 = understandRule({
+  index: "22",
+  title: "沟通直接性（执行等级：C+D）",
+  level: "C+D",
+  body: "- **触发**：所有交流场景。\n- **检查**：疑问句禁止变更类工具调用。\n- **动作**：拒绝。\n- **豁免**：非疑问句+动作词；授权答复；只读/展示类。"
+});
+const state22 = createState();
+state22.configs = [rule22];
+const g22 = getSessionState(state22, "global");
+g22.turn.questionOnly = true;
+g22.turn.userText = "你的执行方案难道没问题吗？";
+hit = guardDecision(state22, { name: "edit", arguments: { file_path: "D:/f.txt", old_string: "a", new_string: "b" } });
+assert.ok(hit && hit.ruleId === "22", "question sentence blocks mutation (同形词不豁免)");
+hit = guardDecision(state22, { name: "pwsh", arguments: { command: "Set-Content -Path C:/f.txt -Value x" } });
+assert.ok(hit && hit.ruleId === "22", "question sentence blocks pwsh write");
+hit = guardDecision(state22, { name: "read", arguments: { file_path: "C:/x" } });
+assert.equal(hit, null, "read-only allowed under question");
+hit = guardDecision(state22, { name: "ask_user_question", arguments: { questions: [] } });
+assert.equal(hit, null, "ask_user_question allowed under question");
+const state22b = createState();
+state22b.configs = [rule22];
+const g22b = getSessionState(state22b, "global");
+g22b.turn.questionOnly = false;
+g22b.turn.userText = "执行吧";
+hit = guardDecision(state22b, { name: "edit", arguments: { file_path: "D:/f.txt", old_string: "a", new_string: "b" } });
+assert.equal(hit, null, "directive sentence allowed");
+
 // 规则 13A：删除无备份
 hit = guardDecision(state, { name: "pwsh", arguments: { command: "Remove-Item -Recurse C:/temp/x" } });
 assert.ok(hit && hit.ruleId === "13A", "deny destructive without backup");
