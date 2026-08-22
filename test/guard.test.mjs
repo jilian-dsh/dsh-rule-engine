@@ -46,23 +46,17 @@ const rule1 = understandRule({
   level: "A",
   body: "- **触发**：工具调用失败或卡住。\n- **检查**：同工具同参数连续失败≥2次。\n- **动作**：拒绝第3次重试。\n- **豁免**：用户明确要求重试。"
 });
-const rule12d = understandRule({
-  index: "12D",
-  title: "敏感操作授权时序（执行等级：C）",
-  level: "C",
-  body: "- **触发**：git push/commit、工作区外写入、删除类、改配置。\n- **检查**：无授权证据→拒绝。\n- **动作**：拒绝。\n- **豁免**：无。"
+const rule12a = understandRule({
+  index: "12A",
+  title: "执行前确认（执行等级：C+D）",
+  level: "C+D",
+  body: "- **触发**：创建/删除/覆盖/移动/执行命令/下载/提交等。\n- **检查**：敏感操作需授权证据。\n- **动作**：无授权→拒绝。\n- **豁免**：只读、工作区低风险新建。"
 });
 const rule24 = understandRule({
   index: "24",
-  title: "插件装配类型确认（执行等级：A 硬拦）",
+  title: "插件变更统一守卫（执行等级：A 硬拦）",
   level: "A",
-  body: "- **触发**：新增/修改 DSH 插件装配。\n- **检查**：只有 dsh.bundle 才能加入 bundles。\n- **动作**：拒绝。\n- **豁免**：官方 bundle。"
-});
-const rule25 = understandRule({
-  index: "25",
-  title: "插件变更类工具统一守卫覆盖（执行等级：A 硬拦）",
-  level: "A",
-  body: "- **触发**：开发/维护规则守卫类插件。\n- **检查**：所有变更工具都必须纳入统一守卫。\n- **动作**：拒绝未覆盖变更工具。\n- **豁免**：只读工具。"
+  body: "- **触发**：新增/修改 DSH 插件装配；给 DSH 增加新的文件变更工具。\n- **检查**：只有 dsh.bundle 才能加入 bundles；所有变更类工具纳入统一守卫。\n- **动作**：拒绝未覆盖变更工具与类型不匹配装配。\n- **豁免**：官方 bundle；只读工具。"
 });
 const rule27 = understandRule({
   index: "27",
@@ -73,7 +67,7 @@ const rule27 = understandRule({
 
 function makeState() {
   const state = createState();
-  state.configs = [rule9, rule18, rule13, rule12b, rule21, rule1, rule12d];
+  state.configs = [rule9, rule18, rule13, rule12b, rule21, rule1, rule12a];
   return state;
 }
 
@@ -118,6 +112,16 @@ hit = guardDecision(state, { name: "write", arguments: { file_path: "D:/example 
 assert.equal(hit, null, "allow Chinese ps1 write under PS7");
 hit = guardDecision(state, { name: "pwsh", arguments: { command: "Set-Content -Path x.ps1 -Value '中文'" } });
 assert.equal(hit, null, "allow Chinese ps1 command without BOM under PS7");
+
+// 统一入口命令豁免 13A（入口内部自带写前备份，属静态扫描已知盲区 → 显式信任）
+const stateEntry = createState();
+stateEntry.configs = [rule13];
+hit = guardDecision(stateEntry, { name: "pwsh", arguments: { command: 'node scripts/example-manual-write.mjs local "D:/example workspace/.dsh/AGENTS.md" a b' } });
+assert.equal(hit, null, "entry channel exempt from 13A backup check");
+hit = guardDecision(stateEntry, { name: "pwsh", arguments: { command: 'node scripts/example-manual-write.mjs local "D:/example workspace/.dsh/AGENTS.md" "D:\\example\\global-npm\\x" y' } });
+assert.equal(hit, null, "entry channel with multiple abs paths exempt from 13A");
+hit = guardDecision(stateEntry, { name: "pwsh", arguments: { command: "Set-Content -Path 'C:/outside/x.txt' -Value 'x'" } });
+assert.ok(hit && hit.ruleId === "13A", "plain direct write outside still hits 13A");
 
 // 规则 13A：删除无备份
 hit = guardDecision(state, { name: "pwsh", arguments: { command: "Remove-Item -Recurse C:/temp/x" } });
@@ -244,7 +248,7 @@ assert.equal(guardDecision(state3, exec), null, "allowed after success clears fa
 const stateScope = makeState();
 getSessionState(stateScope, "global").authorizations.push({ type: "write", pathPrefix: "d:/other", at: Date.now(), source: "test" });
 hit = guardDecision(stateScope, { name: "edit", arguments: { file_path: "D:/target/file.txt", old_string: "a", new_string: "b" } });
-assert.ok(hit && (hit.ruleId === "12D" || hit.ruleId === "12A"), "scope mismatch denied");
+assert.ok(hit && hit.ruleId === "12A", "scope mismatch denied");
 
 // 询问型用户消息：即使有历史授权，当前轮敏感操作也应提示“询问非授权”
 const stateQuestion = makeState();
@@ -280,25 +284,25 @@ assert.ok(hit && hit.ruleId === "24", "manual write non-bundle into bundles deni
 hit = guardDecision(state24Manual, { name: "write", arguments: { file_path: profilePkgPath, content: JSON.stringify({ dsh: { profile: { bundles: ["good-pkg"] } } }) } });
 assert.equal(hit, null, "manual write bundle into bundles allowed");
 
-// 规则 25：未覆盖的变更工具拒绝，安全/只读工具放行
+// 规则 25（已并入规则 24 ④）：未覆盖的变更工具拒绝，安全/只读工具放行
 const state25 = createState();
-state25.configs = [rule25];
+state25.configs = [rule24];
 hit = guardDecision(state25, { name: "run_code", arguments: { code: "writeFileSync('x','y')" } });
-assert.ok(hit && hit.ruleId === "25", "uncovered mutating tool denied");
+assert.ok(hit && hit.ruleId === "24", "uncovered mutating tool denied by rule24");
 hit = guardDecision(state25, { name: "ask_user_question", arguments: { questions: [] } });
 assert.equal(hit, null, "safe tool allowed");
 hit = guardDecision(state25, { name: "read", arguments: { file_path: "C:/x" } });
 assert.equal(hit, null, "read-only allowed");
 
-// 规则 25 扩展：通用执行器已纳入覆盖集合；敏感授权由 12A/12D 负责
+// 规则 24 扩展：通用执行器已纳入覆盖集合；敏感授权由 12A 负责
 const state25Exec = createState();
-state25Exec.configs = [rule25];
+state25Exec.configs = [rule24];
 hit = guardDecision(state25Exec, { name: "dev_stage_add", arguments: { name: "x", execute: "writeFileSync('x','y')" } });
-assert.equal(hit, null, "covered generic executor not denied by rule25");
+assert.equal(hit, null, "covered generic executor not denied by rule24");
 const state25ExecAuth = createState();
-state25ExecAuth.configs = [rule12d];
+state25ExecAuth.configs = [rule12a];
 hit = guardDecision(state25ExecAuth, { name: "dev_stage_call", arguments: { name: "x", args: {} } });
-assert.ok(hit && (hit.ruleId === "12D" || hit.ruleId === "12A"), "generic executor without auth denied by sensitive auth");
+assert.ok(hit && hit.ruleId === "12A", "generic executor without auth denied by sensitive auth");
 
 // 规则 27：装配变更后未审计 → 继续装配被拒；本会话审计通过后放行；其他会话未审计仍被拒
 const state27 = createState();
@@ -347,7 +351,7 @@ getSessionState(stateManual, "global").turn.toolCount = 1;
 hit = guardDecision(stateManual, { name: "edit", arguments: { file_path: "D:/example workspace/.dsh/skills/example-usage-manual/SKILL.md", old_string: "原文行", new_string: "原文行\n新增行" } });
 assert.equal(hit, null, "manual SKILL.md edit exempt from 12A");
 hit = guardDecision(stateManual, { name: "edit", arguments: { file_path: "D:/example workspace/.dsh/other.txt", old_string: "a", new_string: "b" } });
-assert.ok(hit && (hit.ruleId === "12D" || hit.ruleId === "12A"), "non-manual outside workspace still denied");
+assert.ok(hit && hit.ruleId === "12A", "non-manual outside workspace still denied");
 
 // 写前版本校验：SKILL.md 无包含关系的编辑 → __version-guard 拦截（写前而非写后回滚）
 const stateVG = makeState();
@@ -379,6 +383,19 @@ const verPkgPath = join(verProfile, "package.json");
 const verContent = JSON.stringify({ dependencies: { "missing-pkg": "^1.0.0" }, dsh: { profile: { bundles: ["missing-pkg"] } } });
 hit = guardDecision(state24Ver, { name: "write", arguments: { file_path: verPkgPath, content: verContent } });
 assert.ok(hit && hit.ruleId === "24" && hit.reason.includes("请先用 dev_install_package"), "version dep with missing package denied with next-step hint");
+
+// 规则 19⑧/21⑨：统一入口防伪造（2026-08-23 修复：注释文本含 example-manual-write.mjs 不得放行直写）
+// 注释伪造：写类命令 + 受保护文件名 + 注释声称走入口 → 仍拦
+const stateProtect = createState();
+stateProtect.configs = [];
+hit = guardDecision(stateProtect, { name: "pwsh", arguments: { command: "Set-Content -Path 'D:/example workspace/.dsh/AGENTS.md' -Value 'x'; # example-manual-write.mjs" } });
+assert.ok(hit && hit.ruleId === "__self-protect", "comment-forged entry channel denied");
+// 合法通道：整条命令仅调用 example-manual-write.mjs（无链式分隔）→ 放行
+hit = guardDecision(stateProtect, { name: "pwsh", arguments: { command: "node scripts/example-manual-write.mjs rewrite 'D:/example workspace/.dsh/AGENTS.md' out.md --confirmed" } });
+assert.equal(hit, null, "entry channel call allowed");
+// 链式拼接：写命令 + 入口调用串联 → 仍拦
+hit = guardDecision(stateProtect, { name: "pwsh", arguments: { command: "node scripts/example-manual-write.mjs local a b c; Set-Content -Path 'D:/example workspace/.dsh/AGENTS.md' -Value 'x'" } });
+assert.ok(hit && hit.ruleId === "__self-protect", "chained entry + write denied");
 
 // bypass 放行
 const state4 = makeState();

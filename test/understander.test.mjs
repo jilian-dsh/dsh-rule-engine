@@ -6,6 +6,9 @@ assert.deepEqual(actionsForLevel("A+D"), ["deny", "self-certify"]);
 assert.deepEqual(actionsForLevel("B"), ["correct"]);
 assert.deepEqual(actionsForLevel("C"), ["ask"]);
 assert.deepEqual(actionsForLevel("M"), ["meta"]);
+// 2026-08-23：空格组合等级（规则 2/11/12C 的 "B + D" / "B 弱 + D"）必须解析出 D 自证动作
+assert.deepEqual(actionsForLevel("B + D"), ["correct", "self-certify"]);
+assert.deepEqual(actionsForLevel("B 弱 + D"), ["correct", "self-certify"]);
 
 const rule = {
   index: "9",

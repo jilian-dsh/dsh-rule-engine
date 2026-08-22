@@ -21,7 +21,7 @@ const sample = `# 测试规则
 
 ## 二、沟通与汇报
 
-### [规则 2] 时间信息须真实（执行等级：B）
+### [规则 2] 时间信息须真实（执行等级：B + D）
 - **触发**：回答中出现时间表述。
 - **检查**：写出时间表述前必须先调用 Get-Date。
 - **动作**：违规 → 审计台账 + 纠正注入。
@@ -35,7 +35,7 @@ assert.equal(result.rules.length, 3, "should parse 3 rules");
 assert.equal(result.rules[0].index, "18");
 assert.equal(result.rules[0].level, "A弱");
 assert.equal(result.rules[2].index, "2");
-assert.equal(result.rules[2].level, "B");
+assert.equal(result.rules[2].level, "B+D", "B + D with spaces parses to B+D");
 
 const elems = extractElements(result.rules[0].body);
 assert.ok(elems.trigger.includes("DSH"), "trigger extracted");

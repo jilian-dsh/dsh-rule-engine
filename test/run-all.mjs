@@ -14,6 +14,7 @@ const tests = [
   "./contract.test.mjs",
   "./overengineering.test.mjs",
   "./task-contract-guard.test.mjs",
+  "./consistency-live.test.mjs",
   "./runtime-smoke.mjs"
 ];
 
