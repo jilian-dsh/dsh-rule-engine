@@ -5,6 +5,8 @@ import { join } from "node:path";
 import { createState, getSessionState } from "../lib/core/state.js";
 import { understandRule } from "../lib/core/understander.js";
 import { guardDecision, markAskSeen, markBackupSeen, markManualRead } from "../lib/core/guard-core.js";
+import { parseUserIntents } from "../lib/core/intent.js";
+import { scopesFromIntents } from "../lib/core/authorization.js";
 
 // 防止 maybeReloadIfChanged 读到真实 AGENTS.md 覆盖手工测试配置
 process.env.DSH_HOME = join(tmpdir(), "dsh-rule-engine-guard-test-no-agents");
@@ -152,6 +154,90 @@ g22b.turn.userText = "执行吧";
 hit = guardDecision(state22b, { name: "edit", arguments: { file_path: "D:/f.txt", old_string: "a", new_string: "b" } });
 assert.equal(hit, null, "directive sentence allowed");
 
+// 规则 22 新语义：数字列表混合消息含执行分点 → 允许变更
+const state22c = createState();
+state22c.configs = [rule22];
+const g22c = getSessionState(state22c, "global");
+g22c.turn.intents = parseUserIntents("1. 开始蒸馏\n2. 给方案，确认后再做\n3. 为什么目标会循环？");
+hit = guardDecision(state22c, { name: "edit", arguments: { file_path: "D:/f.txt", old_string: "a", new_string: "b" } });
+assert.equal(hit, null, "mixed numbered message with execute clause allows mutation");
+
+// 纯方案列表：没有执行分点 → 仍禁止变更
+const state22d = createState();
+state22d.configs = [rule22];
+const g22d = getSessionState(state22d, "global");
+g22d.turn.intents = parseUserIntents("1. 给方案\n2. 确认后再做");
+hit = guardDecision(state22d, { name: "edit", arguments: { file_path: "D:/f.txt", old_string: "a", new_string: "b" } });
+assert.ok(hit && hit.ruleId === "22", "plan-only numbered message still blocks mutation");
+
+// 标签混合：明确【执行】分点 → 允许变更
+const state22e = createState();
+state22e.configs = [rule22];
+const g22e = getSessionState(state22e, "global");
+g22e.turn.intents = parseUserIntents("【执行】开始蒸馏\n【问询】为什么目标会循环？");
+hit = guardDecision(state22e, { name: "edit", arguments: { file_path: "D:/f.txt", old_string: "a", new_string: "b" } });
+assert.equal(hit, null, "tagged execute clause allows mutation");
+
+// “可以执行吗？”：仍是问询，不构成执行授权
+const state22f = createState();
+state22f.configs = [rule22];
+const g22f = getSessionState(state22f, "global");
+g22f.turn.intents = parseUserIntents("可以执行吗？");
+hit = guardDecision(state22f, { name: "edit", arguments: { file_path: "D:/f.txt", old_string: "a", new_string: "b" } });
+assert.ok(hit && hit.ruleId === "22", "can-execute-question still blocks mutation");
+
+// ── 规则 22 粒度升级（2026-08-24）：特定执行子句只放行覆盖范围内的变更 ──
+const state22g = createState();
+state22g.configs = [rule22];
+const g22g = getSessionState(state22g, "global");
+g22g.turn.intents = parseUserIntents("1. 删除 D:/tmp/a.txt\n2. 给方案");
+g22g.turn.scopes = scopesFromIntents(g22g.turn.intents);
+hit = guardDecision(state22g, { name: "edit", arguments: { file_path: "D:/f.txt", old_string: "a", new_string: "b" } });
+assert.ok(hit && hit.ruleId === "22", "specific delete clause denies unrelated write");
+hit = guardDecision(state22g, { name: "pwsh", arguments: { command: "Remove-Item -Path 'D:/tmp/a.txt' -Force" } });
+assert.equal(hit, null, "specific delete clause allows matching delete");
+
+const state22h = createState();
+state22h.configs = [rule22];
+const g22h = getSessionState(state22h, "global");
+g22h.turn.intents = parseUserIntents("修改 D:/a.txt");
+g22h.turn.scopes = scopesFromIntents(g22h.turn.intents);
+hit = guardDecision(state22h, { name: "edit", arguments: { file_path: "D:/a.txt", old_string: "a", new_string: "b" } });
+assert.equal(hit, null, "specific write scope allows matching write");
+hit = guardDecision(state22h, { name: "edit", arguments: { file_path: "D:/b.txt", old_string: "a", new_string: "b" } });
+assert.ok(hit && hit.ruleId === "22", "specific write scope denies different path");
+
+// 计划消息 + askSeen：规则 22 不做粒度限制（由 12A/13A 把关）
+const state22i = createState();
+state22i.configs = [rule22];
+const g22i = getSessionState(state22i, "global");
+g22i.turn.intents = parseUserIntents("1. 给方案\n2. 确认后再做");
+g22i.turn.askSeen = true;
+hit = guardDecision(state22i, { name: "edit", arguments: { file_path: "D:/f.txt", old_string: "a", new_string: "b" } });
+assert.equal(hit, null, "plan-only + askSeen does not trigger rule22 granular check");
+
+// 计划消息 + askSeen + askRejected：被拒的 ask 不能当授权，仍应拦
+const state22j = createState();
+state22j.configs = [rule22];
+const g22j = getSessionState(state22j, "global");
+g22j.turn.intents = parseUserIntents("1. 给方案\n2. 确认后再做");
+g22j.turn.askSeen = true;
+g22j.turn.askRejected = true;
+hit = guardDecision(state22j, { name: "edit", arguments: { file_path: "D:/f.txt", old_string: "a", new_string: "b" } });
+assert.ok(hit && hit.ruleId === "22", "plan-only + askRejected still denies mutation");
+
+// 执行分点 + askSeen：粒度仍生效，不能因 askSeen 跳过授权范围
+const state22k = createState();
+state22k.configs = [rule22];
+const g22k = getSessionState(state22k, "global");
+g22k.turn.intents = parseUserIntents("删除 D:/tmp/a.txt");
+g22k.turn.scopes = scopesFromIntents(g22k.turn.intents);
+g22k.turn.askSeen = true;
+// 即使会话授权池里有历史全局 ask 授权，也不得放宽本轮粒度范围
+g22k.authorizations.push({ type: "any", pathPrefix: "", source: "ask", at: Date.now() });
+hit = guardDecision(state22k, { name: "edit", arguments: { file_path: "D:/f.txt", old_string: "a", new_string: "b" } });
+assert.ok(hit && hit.ruleId === "22", "execute + askSeen still granular-denies unrelated write despite stale global ask auth");
+
 // 规则 13A：删除无备份
 hit = guardDecision(state, { name: "pwsh", arguments: { command: "Remove-Item -Recurse C:/temp/x" } });
 assert.ok(hit && hit.ruleId === "13A", "deny destructive without backup");
@@ -279,10 +365,16 @@ getSessionState(stateScope, "global").authorizations.push({ type: "write", pathP
 hit = guardDecision(stateScope, { name: "edit", arguments: { file_path: "D:/target/file.txt", old_string: "a", new_string: "b" } });
 assert.ok(hit && hit.ruleId === "12A", "scope mismatch denied");
 
-// 询问型用户消息：即使有历史授权，当前轮敏感操作也应提示“询问非授权”
+// 询问型用户消息（2026-08-24 新语义：裁决基底 = 本回合 userText；无消息回合不做 22 判定）：
+// 本回合为纯询问 → 22 拦（即使有历史授权也只由 12A 放行，此处预期 22 优先拦）
 const stateQuestion = makeState();
-getSessionState(stateQuestion, "global").turn.questionOnly = true;
-getSessionState(stateQuestion, "global").authorizations.push({ type: "any", pathPrefix: "", at: Date.now(), source: "test" });
+const sQ = getSessionState(stateQuestion, "global");
+{
+  const { parseUserIntents: pui } = await import("../lib/core/intent.js");
+  sQ.turn.userText = "这样可以吗？";
+  sQ.turn.intents = pui(sQ.turn.userText);
+}
+sQ.authorizations.push({ type: "any", pathPrefix: "", at: Date.now(), source: "test" });
 hit = guardDecision(stateQuestion, { name: "edit", arguments: { file_path: "D:/target/file.txt", old_string: "a", new_string: "b" } });
 assert.ok(hit && hit.reason.includes("询问"), "question-only denied");
 
@@ -451,11 +543,11 @@ stateGh.configs = [rule13];
 hit = guardDecision(stateGh, { name: "pwsh", arguments: { command: "& 'D:\\example\\bin\\gh.exe' pr create --repo a/b" } });
 assert.equal(hit, null, "gh.exe invocation not treated as file target");
 
-// E3：已有匹配授权时，重复 ask_user_question 被拦截；无授权时不拦截
+// E3 修订（2026-08-24）：已有授权不再吞 ask 弹窗——ask 必须真正送达用户；无授权时自然放行
 const stateE3 = makeState();
 getSessionState(stateE3, "global").authorizations.push({ type: "write", pathPrefix: "d:/target", at: Date.now(), source: "test" });
 hit = guardDecision(stateE3, { name: "ask_user_question", arguments: { questions: [{ question: "是否允许写入 D:/target/file.txt？" }] } });
-assert.ok(hit && hit.ruleId === "__already-authorized", "duplicate ask denied when auth exists");
+assert.equal(hit, null, "ask allowed even when auth exists (popup must reach user)");
 const stateE3b = makeState();
 hit = guardDecision(stateE3b, { name: "ask_user_question", arguments: { questions: [{ question: "是否允许写入 D:/target/file.txt？" }] } });
 assert.equal(hit, null, "ask allowed when no matching auth");

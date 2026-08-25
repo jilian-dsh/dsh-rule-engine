@@ -72,12 +72,19 @@ dsh plugin --profile web add dsh-rule-engine
 - 只读操作（read/grep/glob/read_image/str_replace_editor view）无条件放行，拦截只针对变更类操作
 - 插件自身配置/理解产物对模型只读：直接 `edit/write` 会被守卫拒绝，需 `/guard unlock`
 - AGENTS.md mtime 变化后自动重解析（`fs.watch` + stat 兜底），规则增删改无需重启
+- **修改插件 lib 代码后必须重启 DSH 生效**：bundle 装配下 `dev_reload_package` 热重载不可靠（报成功但行为仍旧代码，踩坑 65）；重启后以行为实测（如“请继续”放行）验证
+- LLM 意图兜底：对词表低置信/歧义的用户消息异步调用 `ctx.llm` 判定意图（sha256 缓存 + 会话每日限额），词表判拦且 LLM 高置信判执行时放行；失败自动降级词表（`rule-engine.json` 的 `llmIntent` 配置段可开关/调阈值）
+- 状态信号：用户“我已重启/已输入/完成”等就绪确认与无消息回合不做规则 22 拦截，敏感操作仍由 12A/13A 把关（规则 22⑩）
 - 低置信规则不参与硬拦，避免误伤；在 `/guard rules` 中标记人工复核
 - 授权证据按“操作类型 + 目标路径前缀”结构化匹配，区分“询问”与“授权”
 - 备份证据按“目标路径 → 备份路径”记录，删除/覆盖前必须存在对应路径且备份文件真实存在
 - 版本/手册类文件写后自检：版本号连续、append 不覆盖上一行，失败自动回滚并审计
 - 跨工具一致性：同一敏感操作经 `edit` / `write` / `str_replace_editor` / `pwsh` 必须得到相同拦截/放行结论
 - 命令输出静默错误检测：全 false/0/null 或与上一条完全一致时审计 + 注入提醒，不阻断
+- **注入提醒通道实测限制（2026-08-24，O1 实测——已修复，批次 6）：** 根因：`agent.inject` 在 `session/event` 观察回调内同步调用，命中 dsh-session 的 append 重入保护（`session append cannot reenter`，日志 `kind:inject` 可见）；2026-08-24 批次 6 已修复：投递延迟到 append 发布边界之后（宏任务），语义不变（inject 官方语义即“为下一 pre-step 排队、不唤醒”）；审计从 `注入异常` 变为 `注入已投递` 可对账（详见局限 6）
+- **消息注入判别（机制 A，2026-08-24）**：`user/message` 先判 `source.kind`（`user` 以外的官方/插件注入一律跳过：不覆盖回合状态、不产生授权），并用已知注入模板兜底（Current runtime context 快照 / Background subagent 通知 / vision-router 挂载提醒 / `[规则引擎]` 前缀），全部留 `source-skip` 审计——系统注入与插件挂载通知不再污染授权池
+- **工具分类制（机制 B，2026-08-24）**：工具按 analysis / artifact / mutating / unknown 四类判定；未归类工具（新装插件的工具）首次调用走 ask 确认（防“参数名猜不出就放行”的绕过），已归类只读命令（`npm test` / `git -C` / `node --check` / `gh auth status` 等，按命令链分段判定）无条件放行
+- **授权双轨 + revoke 全清（机制 C，2026-08-24）**：自动来源授权（执行分点/ask/指令）绝不写入全局池（全局仅显式白名单）；`/guard revoke` 全清 session + turn.scopes + global + askRejections；授权路径匹配带边界（`d:/a.txt` 不再误匹配 `d:/a.txt.bak`）
 - 技能目录实时联动：`ctx.skills` 目录变化后自动刷新，已禁用/不存在的技能不触发 12B
 - LLM 增量理解：对非 high 置信规则调用 `ctx.llm` 补全结构化理解，失败自动回退模式库；AGENTS.md 变化触发重载后会自动补一次增量理解（按规则+版本去重，不重复烧 token）
 - D 级自证泛化：按规则特征触发自证提示，每规则每会话限 3 次
@@ -112,6 +119,7 @@ dsh plugin --profile web add dsh-rule-engine
 
 6. **输出文本实时拦截**
    受 DSH 官方架构限制，`assistant/message` 无法“拦下不发”，只能事后审计 + 纠正注入；这是平台边界，不是插件能单独突破的。
+   另外（2026-08-24 实测 O1 → 批次 6 已修复）：纠正注入通道根因是引擎在 `session/event` 观察回调内同步调用 `agent.inject`，触发 dsh-session 的 append 同步重入保护（`session append cannot reenter while another append is being published`，`kind:inject` 审计全程可见——注入消息从未到达模型/界面）；修复为延迟到 append 发布边界后投递（宏任务 `setTimeout 0`），inject 官方语义本就是“为下一 pre-step 排队、不唤醒”，语义不变；审计 reason 从 `注入异常：session append cannot reenter...` 变为 `注入已投递（agent=...）`，可对账（测试 `test/phase1f-inject.test.mjs` 锁定）。
 
 ## 致谢
 

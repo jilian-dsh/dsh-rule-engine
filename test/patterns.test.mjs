@@ -163,4 +163,33 @@ assert.equal(
   "destructive command touching settings.yaml still sensitive"
 );
 
+// ── 2026-08-24：只读命令豁免扩充（事故复盘 P0-2：git log / dsh --help 曾被规则 22 误拦）──
+assert.equal(isReadOnlyCommand("git log --oneline -5"), true, "git log 只读放行");
+assert.equal(isReadOnlyCommand("git status --short"), true, "git status 只读放行");
+assert.equal(isReadOnlyCommand("git diff --stat HEAD"), true, "git diff 只读放行");
+assert.equal(isReadOnlyCommand("git push origin main"), false, "git push 仍按变更类");
+assert.equal(isReadOnlyCommand("dsh --dump-config --profile web"), true, "dsh --dump-config 只读放行");
+assert.equal(isReadOnlyCommand("node --version"), true, "node --version 只读放行");
+assert.equal(isReadOnlyCommand("npm ls -g"), true, "npm ls 只读放行");
+assert.equal(isReadOnlyCommand("git log --stat | Set-Content out.txt"), false, "管道写文件不豁免");
+assert.equal(isReadOnlyCommand("Get-Date -Format 'yyyy-MM-dd'"), true, "Get-Date 只读放行");
+
+// ── 2026-08-24：机制批 M4 内联危险判定（diag-run 受控诊断工具）──
+import { isDangerousInlineNode } from "../lib/core/patterns.js";
+assert.equal(isDangerousInlineNode("console.log(1 + 1)"), false, "纯只读表达式 → 不危险");
+assert.equal(isDangerousInlineNode("JSON.parse(x).length"), false, "数据计算 → 不危险");
+assert.equal(isDangerousInlineNode("fs.writeFileSync('a.txt','x')"), true, "fs 写 → 危险");
+assert.equal(isDangerousInlineNode("require('fs').rmSync('x')"), true, "require fs → 危险");
+assert.equal(isDangerousInlineNode("fetch('http://x')"), true, "fetch → 危险");
+assert.equal(isDangerousInlineNode("child_process.execSync('whoami')"), true, "exec → 危险");
+assert.equal(isDangerousInlineNode("process.env.FOO = '1'"), true, "改环境变量 → 危险");
+
+// ── 2026-08-24：机制批 M7 落盘授权粒度提醒 ──
+import { needsApprovalReminder } from "../lib/core/patterns.js";
+assert.equal(needsApprovalReminder("请你调整补充方案"), true, "方案性指令 → 需提醒（调整/补充≠落盘授权）");
+assert.equal(needsApprovalReminder("请把方案落盘"), false, "含落盘词 → 不提醒");
+assert.equal(needsApprovalReminder("调整一下然后落盘到手册"), false, "调整+落盘并存 → 不提醒");
+assert.equal(needsApprovalReminder("今天天气不错"), false, "无关消息 → 不提醒");
+assert.equal(needsApprovalReminder(""), false, "空文本 → 不提醒");
+
 console.log("patterns.test.js PASS");

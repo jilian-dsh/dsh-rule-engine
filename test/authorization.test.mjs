@@ -1,15 +1,22 @@
 import assert from "node:assert/strict";
 import {
+  askQuestionCoreText,
   askResultApproved,
+  askResultSelectedText,
   authMatches,
   describeOp,
+  describeScopes,
   findMatchingAuth,
   inferPathPrefixFromText,
+  inferPathPrefixesFromText,
   inferTypeFromText,
+  inferTypesFromText,
   isAuthMessage,
   isDirectiveMessage,
   isQuestionMessage,
-  operationOf
+  isSessionWideAskText,
+  operationOf,
+  scopesFromIntents
 } from "../lib/core/authorization.js";
 
 // 操作范围推导
@@ -86,5 +93,82 @@ const moveTrashOp = operationOf("pwsh", { command: "Move-Item 'D:/example worksp
 assert.equal(moveTrashOp.type, "backup", "move to trash is backup type");
 const trashAuth = { type: "backup", pathPrefix: "d:/example workspace/dsh-project/.dsh-meow", at: 1 };
 assert.equal(authMatches(trashAuth, moveTrashOp), true, "source-path auth matches move-to-trash op");
+
+// ── 2026-08-24：词表统一（intent.js 单一来源，消灭两套疑问词不一致）──
+{
+  const { parseUserIntents } = await import("../lib/core/intent.js");
+  for (const q of ["要不要继续", "这样可以吗", "影响大吗？"]) {
+    assert.equal(isQuestionMessage(q), true, `isQuestionMessage(${q}) = true`);
+    assert.equal(parseUserIntents(q).hasQuestion, true, `intent 亦判 ${q} 为询问（两表一致）`);
+  }
+  assert.equal(isQuestionMessage("请继续"), false, "执行句不是询问");
+  assert.equal(parseUserIntents("请继续").hasExecute, true, "执行句是执行分点");
+}
+
+// ── 2026-08-24：APPROVAL_EXEC_RE（执行许可确认词，规则 22 粒度配套）──
+assert.equal(isAuthMessage("确认方案"), false, "纯确认方案不构成执行许可");
+assert.equal(isAuthMessage("确认理解"), false, "纯确认理解不构成执行许可");
+assert.equal(isAuthMessage("确认，开始执行吧"), true, "确认+执行语构成执行许可");
+assert.equal(isAuthMessage("同意，现在开始"), true, "同意+现在开始构成执行许可");
+assert.equal(askResultApproved({ answers: [{ selected: ["确认方案"] }] }), false, "ask 结果纯确认方案不算批准");
+assert.equal(askResultApproved({ answers: [{ selected: ["确认，开始执行"] }] }), true, "ask 结果带执行语算批准");
+assert.equal(askResultApproved({ answers: [{ selected: ["按交接文档全部推进项执行（推荐）"] }] }), true, "ask 选项含执行动作算批准");
+assert.equal(askResultApproved({ answers: [{ selected: ["只做第 1 项回合粒度升级"] }] }), true, "ask 选项含做/升级动作算批准");
+
+// ── 2026-08-24：scopesFromIntents（规则 22 粒度范围推导）──
+{
+  const { parseUserIntents } = await import("../lib/core/intent.js");
+  const mixed = parseUserIntents("1. 删除 D:/tmp/a.txt\n2. 给出方案");
+  const scopes = scopesFromIntents(mixed);
+  assert.equal(scopes.length, 1, "仅 execute 子句生成授权范围");
+  assert.equal(scopes[0].type, "delete", "删除子句推导 delete 类型");
+  assert.ok(scopes[0].pathPrefix.includes("d:/tmp/a.txt"), "删除子句保留路径");
+  assert.equal(parseUserIntents("执行吧").hasExecute, true, "宽泛执行仍是 execute");
+  const broadScopes = scopesFromIntents(parseUserIntents("执行吧"));
+  assert.equal(broadScopes.length, 1, "宽泛执行也有一个范围");
+  assert.equal(broadScopes[0].type, "any", "宽泛执行推导 any 类型（不被误限为 command）");
+  assert.equal(broadScopes[0].pathPrefix, "", "宽泛执行全局路径");
+  assert.ok(describeScopes(scopes).includes("delete"), "describeScopes 可读");
+}
+
+// ── 2026-08-24：ask 授权范围修复（选项描述不得放大全局 TTL）──
+{
+  const qs = [
+    {
+      question: "是否删除 D:/x?",
+      header: "删除确认",
+      options: [{ label: "允许", description: "仅会话内说明，不跨会话保留" }]
+    }
+  ];
+  assert.equal(askQuestionCoreText(qs).includes("仅会话内说明"), false, "core text 不含选项描述");
+  assert.equal(askQuestionCoreText(qs).includes("是否删除"), true, "core text 含问题");
+  assert.equal(askResultSelectedText({ answers: [{ selected: ["允许"], custom: "" }] }), "允许", "selected text 提取");
+  assert.equal(isSessionWideAskText("仅会话内说明"), false, "“仅会话内说明”不算会话级范围");
+  assert.equal(isSessionWideAskText("全部推进项"), true, "“全部推进项”算会话级范围");
+  assert.equal(isSessionWideAskText("本会话"), true, "“本会话”算会话级范围");
+}
+
+// ── 2026-08-24：多操作/多路径范围推导（“修改 A、删除 B”不得只覆盖单一 type/最长路径）──
+{
+  const { parseUserIntents } = await import("../lib/core/intent.js");
+  const multi = parseUserIntents("修改 D:/a.txt 并删除 D:/b.txt");
+  const scopes = scopesFromIntents(multi);
+  const types = scopes.map((s) => s.type).sort();
+  assert.ok(types.includes("write") && types.includes("delete"), "多操作子句同时推导 write+delete");
+  assert.ok(scopes.some((s) => s.pathPrefix.includes("d:/a.txt")), "路径 A 被覆盖");
+  assert.ok(scopes.some((s) => s.pathPrefix.includes("d:/b.txt")), "路径 B 被覆盖");
+  assert.deepEqual([...inferTypesFromText("修改并删除")].sort(), ["delete", "write"], "inferTypesFromText 返回全部命中类型");
+  assert.ok(inferPathPrefixesFromText("改 D:/a.txt 和 D:/b.txt").length === 2, "inferPathPrefixesFromText 返回全部路径");
+}
+
+// ── 2026-08-25 RB-05：只读/审查类词 → analysis 类型（置末位，不抢变更语义）──
+{
+  assert.equal(inferTypeFromText("审查这个配置"), "analysis", "审查 → analysis");
+  assert.equal(inferTypeFromText("阅读交接文档"), "analysis", "阅读 → analysis");
+  assert.equal(inferTypeFromText("验证一下结果"), "analysis", "验证 → analysis");
+  assert.equal(inferTypeFromText("修改 A 并审查 B"), "write", "修改并审查 → write 优先（analysis 置末位）");
+  assert.equal(inferTypeFromText("删除该文件"), "delete", "删除 → delete（回归）");
+  assert.deepEqual([...inferTypesFromText("查看并修改")].sort(), ["analysis", "write"], "inferTypesFromText 全命中含 analysis");
+}
 
 console.log("authorization.test.js PASS");

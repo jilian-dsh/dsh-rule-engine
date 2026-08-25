@@ -53,12 +53,12 @@ assert.deepEqual(actionsForLevel("A+D"), ["deny", "self-certify"], "A+D preserve
 assert.deepEqual(actionsForLevel("D 强"), ["self-certify"], "D 强 -> self-certify");
 
 // 覆盖自省（一致性预防）：dead = 映射有但规则无；uncovered = 硬等级但无 handler
-// 单规则场景：19 个映射中仅 "12A" 存在 → 其余 18 个均为 dead（真实场景由 consistency-live 断言为 0）
+// 单规则场景：18 个映射中仅 "12A" 存在 → 其余 17 个均为 dead（真实场景由 consistency-live 断言为 0；2026-08-24 13B 外移后映射 19→18）
 const cov1 = analyzeCoverage([rule12a]);
-assert.equal(cov1.dead.size, 18, "18 other mappings flagged dead when presenting only rule12a");
+assert.equal(cov1.dead.size, 17, "17 other mappings flagged dead when presenting only rule12a");
 assert.equal(cov1.uncovered.length, 0, "rule12a has handler -> covered");
 const cov2 = analyzeCoverage([understandRule({ index: "99", title: "未知规则（执行等级：A）", level: "A", body: "- **触发**：x。\n- **检查**：y。" })]);
-assert.equal(cov2.dead.size, 19, "all 19 HANDLER_BY_RULE mappings flagged dead when no rule present");
+assert.equal(cov2.dead.size, 18, "all 18 HANDLER_BY_RULE mappings flagged dead when no rule present");
 assert.ok(cov2.uncovered.some((u) => u.ruleId === "99"), "A-level rule without handler flagged uncovered");
 
 console.log("consistency.test.js PASS");
