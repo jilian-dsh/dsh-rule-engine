@@ -174,6 +174,31 @@ assert.ok(hits.some((h) => h.ruleId === "13B"), "rule13B self-cert triggered");
 hits = detectViolations({ configs: state.configs, session, text: "这个文件版本不确定，先保留" });
 assert.ok(hits.some((h) => h.ruleId === "15"), "rule15 self-cert triggered");
 
+// 注入噪音治理 v0.5.6（建议2/3 已自证抑制）：同回复含"规则 X 已按/已自证"标记 → 该规则不再重复命中
+hits = detectViolations({ configs: state.configs, session, text: "本次总结：已按规则 14 一次性说明所有要点" });
+assert.ok(!hits.some((h) => h.ruleId === "14"), "rule14 self-cert suppressed when already self-certified");
+hits = detectViolations({ configs: state.configs, session, text: "建议已按规则 16 合并提出并说明理由" });
+assert.ok(!hits.some((h) => h.ruleId === "16"), "rule16 self-cert suppressed when already self-certified");
+// 未带标记仍触发（回归保护）
+hits = detectViolations({ configs: state.configs, session, text: "本次总结如下，另有两项建议待补充" });
+assert.ok(hits.some((h) => h.ruleId === "14"), "rule14 still triggers without self-cert mark");
+
+// C2 统计：detected / suppressed 计数（含聚合纯函数）
+{
+  const s3 = getSessionState(state, "s3");
+  s3.turn.getDateSeen = true;
+  detectViolations({ configs: state.configs, session: s3, text: "本次总结：已按规则 14 一次性说明所有要点" });
+  assert.equal(s3.ruleStats["14"].detected, 1, "detected counted");
+  assert.equal(s3.ruleStats["14"].suppressed, 1, "suppressed counted");
+  detectViolations({ configs: state.configs, session: s3, text: "本次总结如下" });
+  assert.equal(s3.ruleStats["14"].detected, 2, "second detected");
+  assert.equal(s3.ruleStats["14"].suppressed, 1, "no second suppression");
+  const { aggregateRuleStats } = await import("../lib/service.js");
+  const rows = aggregateRuleStats([s3]);
+  const row = rows.find((r) => r.ruleId === "14");
+  assert.ok(row && row.detected === 2 && row.suppressed === 1, "aggregateRuleStats merges");
+}
+
 // extractAssistantText
 const msg = { content: [{ type: "text", text: "hello" }, { type: "image", text: "ignored" }] };
 assert.equal(extractAssistantText(msg), "hello");

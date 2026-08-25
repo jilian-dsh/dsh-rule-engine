@@ -207,6 +207,17 @@ assert.equal(hit, null, "specific write scope allows matching write");
 hit = guardDecision(state22h, { name: "edit", arguments: { file_path: "D:/b.txt", old_string: "a", new_string: "b" } });
 assert.ok(hit && hit.ruleId === "22", "specific write scope denies different path");
 
+// 保护性备份豁免（2026-08-26，backup 口径修复）：write scope 回合 backup 类型操作放行；普通写仍受粒度限制
+const state22l = createState();
+state22l.configs = [rule22];
+const g22l = getSessionState(state22l, "global");
+g22l.turn.intents = parseUserIntents("修改 D:/a.txt");
+g22l.turn.scopes = scopesFromIntents(g22l.turn.intents);
+hit = guardDecision(state22l, { name: "pwsh", arguments: { command: "Copy-Item 'D:/a.txt' 'D:/example workspace/dsh-project/.backups/a.txt.bak'" } });
+assert.equal(hit, null, "protective backup exempt from rule22 granular scope");
+hit = guardDecision(state22l, { name: "edit", arguments: { file_path: "D:/b.txt", old_string: "a", new_string: "b" } });
+assert.ok(hit && hit.ruleId === "22", "non-backup write still granular-denied");
+
 // 计划消息 + askSeen：规则 22 不做粒度限制（由 12A/13A 把关）
 const state22i = createState();
 state22i.configs = [rule22];
