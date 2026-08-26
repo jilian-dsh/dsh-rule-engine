@@ -34,7 +34,9 @@ const tests = [
   // phase1e 批次 5 文本健康：纯函数测试（不 import index.js）
   "./phase1e-texthealth.test.mjs",
   // phase1f O1 注入通道修复（批次 6）：同 session-events/phase1b/1c 前提（自设 DSH_HOME + import index.js）——保持末尾
-  "./phase1f-inject.test.mjs"
+  "./phase1f-inject.test.mjs",
+  // v0.5.7 投递资格语义层：纯函数测试（不 import index.js，安全位置）——固定末尾（踩坑 83 ESM 缓存约定）
+  "./semantic-gate.test.mjs"
 ];
 
 for (const t of tests) {

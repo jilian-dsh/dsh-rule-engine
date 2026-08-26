@@ -199,6 +199,40 @@ assert.ok(hits.some((h) => h.ruleId === "14"), "rule14 still triggers without se
   assert.ok(row && row.detected === 2 && row.suppressed === 1, "aggregateRuleStats merges");
 }
 
+// v0.5.7 真实文本回放（2026-08-26 12:37 那轮原文）：词表原样仍产生规则 16 嫌疑（不迁就措辞、
+// 不放宽标准），但命中必须带 awaitingJudge 标记——"词表只产嫌疑，是否错误由裁决层确认"。
+{
+  const s8 = getSessionState(state, "s8");
+  s8.turn.getDateSeen = true;
+  const realText = "等待你的指令，不再提出新建议。规则 16 自证：无新建议、无重复推销；只等待你的明确指令。";
+  const cfg16 = understandRule({
+    index: "16",
+    title: "建议提出规范（执行等级：D 强）",
+    level: "D强",
+    body: "- **触发**：建议。\n- **检查**：绑定检查格式。\n- **动作**：自证。"
+  });
+  const hs = detectViolations({ configs: state.configs.concat([cfg16]), session: s8, text: realText });
+  const h16 = hs.find((h) => h.ruleId === "16");
+  assert.ok(h16, "真实文本仍产生规则 16 嫌疑（词表原样、未放宽）");
+  assert.equal(h16.awaitingJudge, true, "嫌疑带 awaitingJudge 标记（供裁决层确认错误）");
+}
+
+// v0.5.7 P0.5-5/6：引述承诺词不算违规；否定/合规声明不构成"重复提议"传播
+{
+  const s9 = getSessionState(state, "s9");
+  s9.turn.getDateSeen = true;
+  const cfg16b = understandRule({
+    index: "16",
+    title: "建议提出规范（执行等级：D 强）",
+    level: "D强",
+    body: "- **触发**：建议。\n- **检查**：绑定检查格式。\n- **动作**：自证。"
+  });
+  let hs = detectViolations({ configs: state.configs, session: s9, text: "正确说法是把'保证'改成保守表述" });
+  assert.ok(!hs.some((h) => h.ruleId === "7"), "引述'保证'不算承诺（P0.5-5）");
+  hs = detectViolations({ configs: state.configs.concat([cfg16b]), session: s9, text: "我不再建议用旧方案了" });
+  assert.ok(!hs.some((h) => h.ruleId === "16" && h.reason.includes("重复建议")), "否定声明不构成重复提议（P0.5-6）");
+}
+
 // extractAssistantText
 const msg = { content: [{ type: "text", text: "hello" }, { type: "image", text: "ignored" }] };
 assert.equal(extractAssistantText(msg), "hello");
