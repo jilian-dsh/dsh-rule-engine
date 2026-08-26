@@ -1,7 +1,7 @@
 # dsh-rule-engine
 
 ![npm](https://img.shields.io/npm/v/dsh-rule-engine)
-![version](https://img.shields.io/badge/version-0.5.7-blue)
+![version](https://img.shields.io/badge/version-0.5.8-blue)
 
 DSH 规则执行引擎 v3 的插件实现。它把 `~/.dsh/AGENTS.md` 当作唯一真相源，自动解析规则四要素与执行等级，再通过「工具守卫 + 文本检测 + 时序检查 + 审计台账」执行用户规则，而不是内置一套与用户无关的安全清单。
 
@@ -45,6 +45,13 @@ DSH 规则执行引擎 v3 的插件实现。它把 `~/.dsh/AGENTS.md` 当作唯�
 - `node scripts/verify-all.mjs` —— 交付前四层体检：语法（lib 全文件 `node --check`）→ 单元（run-all）→ **组合冒烟**（`test/loader-smoke.e2e.mjs`：真实引擎代码 + 真实审计文件，仅 mock LLM 边界，断言**外部世界**——审计文件里真的出现 judge-false/judge-pass 记录，而非自我报告）→ **真实判例**（近 24h 台账 judge-pass/false 记录数，0 条 = WARN 提示需实弹）；
 - `node scripts/health-audit.mjs` —— 找茬清单：近 24h 失败/降级类统计（intent-llm 失败、judge-unavailable、verify-gap、inject-skip…）+ 关键导出接线交叉（疑似未接线 = 告警）——"失败可见化"，不再有静默躺 20 小时的降级；
 - 执行协议（本仓库自身交付纪律）：方案冻结单（范围/影响面/测试计划/失败预测）→ todo 化 → 小步闭环（每改动立即 `node --check`）→ 对账交付（计划×实际逐项 ✅/❌/跳过原因）。
+
+## 0.5.8（2026-08-26 追加）
+
+- **白名单持久化**："允许使用 X"（未归类工具批准）落盘 `~/.dsh/rule-engine-tools.json`——此前为内存态，热重载/重启即清（用户需反复重发，实测 esr_task/esr_close 各被清一次）；
+- **只读命令词表补全**：`Select-Object / Out-String / Format-Table / Measure-Object / Sort-Object / Where-Object / Group-Object / Out-Null / ConvertTo-Json` 等常见只读 cmdlet 纳入只读判定（此前 `Get-Item | Select-Object` 被误判为变更拦截）——含"管道内含写操作仍判变更"的安全回归；
+- **`npm run verify`** 注册（= `scripts/verify-all.mjs` 四层体检别名）；
+- 工作区内低风险变更豁免（12A 正文对齐：只读诊断脚本不再被拦——0.5.7 的延续项）。
 
 ## 任务契约与反过度工程（可选）
 
