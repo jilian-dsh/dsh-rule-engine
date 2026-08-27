@@ -416,15 +416,20 @@ assert.ok(hit && hit.ruleId === "24", "manual write non-bundle into bundles deni
 hit = guardDecision(state24Manual, { name: "write", arguments: { file_path: profilePkgPath, content: JSON.stringify({ dsh: { profile: { bundles: ["good-pkg"] } } }) } });
 assert.equal(hit, null, "manual write bundle into bundles allowed");
 
-// 规则 25（已并入规则 24 ④）：未覆盖的变更工具拒绝，安全/只读工具放行
+// 规则 24④（0.5.9 单真源修订）：已分类工具（run_code=官方保留传输，标注为变更类）= 已纳入统一守卫，
+// 24④ 放行（由 22/12A/13A 授权把关）；未分类 + 疑似变更 = 运行时拒绝（兜底不变）
 const state25 = createState();
 state25.configs = [rule24];
 hit = guardDecision(state25, { name: "run_code", arguments: { code: "writeFileSync('x','y')" } });
-assert.ok(hit && hit.ruleId === "24", "uncovered mutating tool denied by rule24");
+assert.equal(hit, null, "run_code classified as mutating -> covered by unified guard (rule24 passes)");
+hit = guardDecision(state25, { name: "future_unknown_tool", arguments: { code: "writeFileSync('x','y')" } });
+assert.ok(hit && hit.ruleId === "24", "truly unknown tool with code param still denied by rule24 fallback");
 hit = guardDecision(state25, { name: "ask_user_question", arguments: { questions: [] } });
 assert.equal(hit, null, "safe tool allowed");
 hit = guardDecision(state25, { name: "read", arguments: { file_path: "C:/x" } });
 assert.equal(hit, null, "read-only allowed");
+hit = guardDecision(state25, { name: "future_unknown_tool", arguments: { label: "x" } });
+assert.equal(hit, null, "truly unknown tool without mutation-looking args not denied by rule24");
 
 // 规则 24 扩展：通用执行器已纳入覆盖集合；敏感授权由 12A 负责
 const state25Exec = createState();

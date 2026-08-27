@@ -1,7 +1,7 @@
 # dsh-rule-engine
 
 ![npm](https://img.shields.io/npm/v/dsh-rule-engine)
-![version](https://img.shields.io/badge/version-0.5.8-blue)
+![version](https://img.shields.io/badge/version-0.5.9-blue)
 
 DSH 规则执行引擎 v3 的插件实现。它把 `~/.dsh/AGENTS.md` 当作唯一真相源，自动解析规则四要素与执行等级，再通过「工具守卫 + 文本检测 + 时序检查 + 审计台账」执行用户规则，而不是内置一套与用户无关的安全清单。
 
@@ -42,9 +42,23 @@ DSH 规则执行引擎 v3 的插件实现。它把 `~/.dsh/AGENTS.md` 当作唯�
 ## 质量与验证（2026-08-26，对齐官方 docs/testing.zh.md）
 
 - `npm run test`（全量单测；`test/run-all.mjs` 统一入口，注意 ESM 缓存顺序约定）；
-- `node scripts/verify-all.mjs` —— 交付前四层体检：语法（lib 全文件 `node --check`）→ 单元（run-all）→ **组合冒烟**（`test/loader-smoke.e2e.mjs`：真实引擎代码 + 真实审计文件，仅 mock LLM 边界，断言**外部世界**——审计文件里真的出现 judge-false/judge-pass 记录，而非自我报告）→ **真实判例**（近 24h 台账 judge-pass/false 记录数，0 条 = WARN 提示需实弹）；
+- `node scripts/verify-all.mjs` —— 交付前**五层**体检：语法（lib 全文件 `node --check`）→ 单元（run-all）→ **组合冒烟**（`test/loader-smoke.e2e.mjs`：真实引擎代码 + 真实审计文件，仅 mock LLM 边界，断言**外部世界**——审计文件里真的出现 judge-false/judge-pass 记录，而非自我报告）→ **工具箱覆盖**（`scripts/check-tool-coverage.mjs`：官方 tool-catalog 全集 vs 分类表，出现 unknown 即红）→ **真实判例**（近 24h 台账 judge-pass/false 记录数，0 条 = WARN 提示需实弹）；
 - `node scripts/health-audit.mjs` —— 找茬清单：近 24h 失败/降级类统计（intent-llm 失败、judge-unavailable、verify-gap、inject-skip…）+ 关键导出接线交叉（疑似未接线 = 告警）——"失败可见化"，不再有静默躺 20 小时的降级；
 - 执行协议（本仓库自身交付纪律）：方案冻结单（范围/影响面/测试计划/失败预测）→ todo 化 → 小步闭环（每改动立即 `node --check`）→ 对账交付（计划×实际逐项 ✅/❌/跳过原因）。
+
+## 0.5.9（2026-08-27 追加）
+
+> 修复方向（用户"整体审查"要求，依据手册知识条目 K-01~K-06）：静态工具清单漏分类官方工具
+> （`run_code` 事故——code 模式会话一切被拦）→ 单一真源 + 前缀规则 + 覆盖门禁 + 白名单可视化。
+
+- **工具分类单真源**：规则 24④ 守卫与 unknown 处置统一读 `lib/core/tool-catalog.js` 唯一分类表（废弃双表——run_code 正是双表都漏的受害者）；
+- **官方工具全集补全**：59 个官方 tool-catalog 工具名全覆盖（`cordis_*`/`terminal_*`/`session_*`/goal/jobs/子代理/团队/plan-mode/官方保留传输 `run_code` 等）——Code Mode 会话（模型只能直呼 `run_code`）不再被"未知工具"拦死；
+- **前缀规则**：`mcp__`（变更类走授权，照 Claude Code `mcp__*` 范式）、`esr_`/`dev_` 等生态命名空间自动归类——**将来新增插件工具遵循惯例即被覆盖**（不再依赖静态枚举）；
+- **unknown 首调处置 `unknownPolicy`**：默认 `deny`（保守：`ask` 弹窗模式需真实场景实弹验证后才可作默认；配置 `"ask"` 可切换官方弹窗——approval 弹窗 allowed-once，无审批通道自动拒绝，官方 fail-closed 语义）；
+- **白名单 v2 带元数据**：`~/.dsh/rule-engine-tools.json` 升级为 `[{name,time,session}]`（**谁、何时、在哪个会话被放行**——可视化基础）；旧 `["name"]` 格式兼容加载；历史条目显示"时间/来源未知"；
+- **`/guard tools` 命令**：查看白名单（永久 + 本会话新增，含时间/来源会话）+ `/guard tools revoke <工具名>` 撤销（持久化+会话集同步）；
+- **工具箱覆盖门禁**：`scripts/check-tool-coverage.mjs`（官方 tool-catalog vs 分类表，任一 unknown 即红——`run_code` 事故同类的机器防线）已挂入 `verify-all` 第五层；
+- **测试**：全量单测（新增 whitelist 格式 5 用例）+ loader-smoke 新增 E 场景（白名单 v2 真实落盘断言：对象数组/时间/来源会话/审计留痕）+ verify-all **五层**全绿。
 
 ## 0.5.8（2026-08-26 追加）
 
@@ -77,6 +91,8 @@ DSH 规则执行引擎 v3 的插件实现。它把 `~/.dsh/AGENTS.md` 当作唯�
 | `/guard budget ...` | 设置预算（agents=N files=... deps=allow hash=allow） |
 | `/guard contract` | 查看当前任务契约 |
 | `/guard label <id> <label>` | 给审计记录打标（correct/incorrect/inconclusive） |
+| `/guard tools` | 查看工具放行白名单（永久+本会话，含时间/来源会话） |
+| `/guard tools revoke <名>` | 撤销白名单条目（持久化+会话集同步移除） |
 
 ## 装配方式
 
