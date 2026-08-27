@@ -1,7 +1,7 @@
 # dsh-rule-engine
 
 ![npm](https://img.shields.io/npm/v/dsh-rule-engine)
-![version](https://img.shields.io/badge/version-0.5.9-blue)
+![version](https://img.shields.io/badge/version-0.5.10-blue)
 
 DSH 规则执行引擎 v3 的插件实现。它把 `~/.dsh/AGENTS.md` 当作唯一真相源，自动解析规则四要素与执行等级，再通过「工具守卫 + 文本检测 + 时序检查 + 审计台账」执行用户规则，而不是内置一套与用户无关的安全清单。
 
@@ -45,6 +45,18 @@ DSH 规则执行引擎 v3 的插件实现。它把 `~/.dsh/AGENTS.md` 当作唯�
 - `node scripts/verify-all.mjs` —— 交付前**五层**体检：语法（lib 全文件 `node --check`）→ 单元（run-all）→ **组合冒烟**（`test/loader-smoke.e2e.mjs`：真实引擎代码 + 真实审计文件，仅 mock LLM 边界，断言**外部世界**——审计文件里真的出现 judge-false/judge-pass 记录，而非自我报告）→ **工具箱覆盖**（`scripts/check-tool-coverage.mjs`：官方 tool-catalog 全集 vs 分类表，出现 unknown 即红）→ **真实判例**（近 24h 台账 judge-pass/false 记录数，0 条 = WARN 提示需实弹）；
 - `node scripts/health-audit.mjs` —— 找茬清单：近 24h 失败/降级类统计（intent-llm 失败、judge-unavailable、verify-gap、inject-skip…）+ 关键导出接线交叉（疑似未接线 = 告警）——"失败可见化"，不再有静默躺 20 小时的降级；
 - 执行协议（本仓库自身交付纪律）：方案冻结单（范围/影响面/测试计划/失败预测）→ todo 化 → 小步闭环（每改动立即 `node --check`）→ 对账交付（计划×实际逐项 ✅/❌/跳过原因）。
+
+## 0.5.10（2026-08-27 追加）
+
+> 收编：用户审查后的 real-legal 会话建议（建议 2/3/4/5，依据本手册知识条目 K-01~K-06 批判性审查）+ 分析通道（用户多次提出的"只读分析需要写临时脚本/输出"痛点）+ 统一入口加固（2026-08-27 手册损伤事故复盘）。
+
+- **分析通道（单真源 `isAnalysisOp`）**：严格只读 ∪ 分析脚本区（repo `scripts/*.mjs`）∪ 分析临时区写（`logs/` `.analysis-tmp/` `.backups/`）→ 任何回合放行 + 审计 `analysis-scratch`；**红线**（红线层在 guard-core）：受保护文件名/工作区外（isOutsideWorkspace）/删除移动/覆盖正式文件一律不豁免；
+- **写类判定单真源**：self-protect / 22 / 13A 统一走 `isMutationCommand`——修复 `Write-Output` 被 `write` 子串误杀（WGO654/ES3VCD 案例：纯读命令查受保护文件名被误拦）；
+- **只读词表补全**：ForEach-Object / Get-ItemProperty / Get-Variable / Get-FileHash（多行"读+筛选+循环"组合判只读）；
+- **统一入口加固**（example-manual-write.mjs）：① 转义事故特征检测——表格行内字面 `\n` / `\$`（PowerShell 单引号转义事故模式，2026-08-27 手册坏行事故）→ 拒绝；② 写后结构校验——表格块列宽一致（±2 容忍）+ 手册版本记录行存在，不通过自动回滚；
+- **误判打标闭环（建议 4）**：所有硬拦文案尾部附「误判可打标：/guard label <事件号> incorrect」指引；health-audit 新增 deny 总数 vs incorrect/correct 打标占比统计（词表迭代量化依据）；
+- **已知坑召回（建议 5）**：工具错误文本命中特征表（SEC_E_NO_CREDENTIALS / ECONNREFUSED:7890 / EPERM 管道 / ERR_MODULE_NOT_FOUND）→ 审计 `error-hint` + 注入指向知识库提示（本轮去重、走投递资格链，不违反注入噪音治理）；
+- **质保**：新增强力测试（写类判定/分析通道/临时区红线/转义检测 REFUSED 实测/召回特征）+ verify-all 五层全绿 + 工具箱覆盖门禁回归。
 
 ## 0.5.9（2026-08-27 追加）
 

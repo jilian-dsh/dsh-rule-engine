@@ -38,7 +38,9 @@ const tests = [
   // v0.5.7 投递资格语义层：纯函数测试（不 import index.js，安全位置）——固定末尾（踩坑 83 ESM 缓存约定）
   "./semantic-gate.test.mjs",
   // v0.5.9 白名单 v2 存储格式：纯函数（不 import index.js）——紧随 semantic-gate 之后
-  "./whitelist.test.mjs"
+  "./whitelist.test.mjs",
+  // v0.5.10 分析通道/写类判定/已知坑召回：纯函数（不 import index.js）——固定末尾
+  "./analysis-channel.test.mjs"
 ];
 
 for (const t of tests) {
