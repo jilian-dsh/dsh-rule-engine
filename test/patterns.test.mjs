@@ -192,4 +192,36 @@ assert.equal(needsApprovalReminder("调整一下然后落盘到手册"), false, 
 assert.equal(needsApprovalReminder("今天天气不错"), false, "无关消息 → 不提醒");
 assert.equal(needsApprovalReminder(""), false, "空文本 → 不提醒");
 
+// ── 0.5.11：低风险新建豁免 = 目标尚不存在（用户定稿）──
+import { isLowRiskWorkspaceNew, setWorkspaceRoot, isOutsideWorkspace } from "../lib/core/patterns.js";
+import { fileURLToPath } from "node:url";
+import { join, dirname } from "node:path";
+const wsRoot = dirname(dirname(fileURLToPath(import.meta.url))); // 引擎项目根 = 工作区根（测试内）
+setWorkspaceRoot(wsRoot);
+// 真实存在的文件（本测试文件自身）→ 已存在 → 不算新建 → 不豁免
+const existingFile = fileURLToPath(import.meta.url);
+assert.equal(
+  isLowRiskWorkspaceNew("edit", { file_path: existingFile }),
+  false,
+  "编辑已存在文件 → 不豁免（0.5.11 修复：问句回合不得覆盖既有文件）"
+);
+assert.equal(
+  isLowRiskWorkspaceNew("write", { file_path: existingFile }),
+  false,
+  "覆盖已存在文件 → 不豁免"
+);
+// 不存在的绝对路径 → 尚不存在 → 真新建 → 豁免
+const nonexistFile = join(wsRoot, ".backups", "nonexist-0.5.11-test.txt");
+assert.equal(
+  isLowRiskWorkspaceNew("write", { file_path: nonexistFile }),
+  true,
+  "目标不存在 → 新建 → 豁免"
+);
+// 相对路径 → 无法判定存在性 → 保守不豁免
+assert.equal(
+  isLowRiskWorkspaceNew("write", { file_path: "relative/x.txt" }),
+  false,
+  "相对路径 → 保守不豁免"
+);
+
 console.log("patterns.test.js PASS");

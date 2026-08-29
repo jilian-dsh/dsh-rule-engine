@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { enrichRulesWithLlm, sanitizeLlmResult } from "../lib/core/llm-understander.js";
+import { enrichRulesWithLlm, resolveRoute, sanitizeLlmResult } from "../lib/core/llm-understander.js";
 import { understandRule } from "../lib/core/understander.js";
 
 // ── 基础用例：LLM 只允许提高 confidence + 追加 hints；actions/handler 不受影响 ──
@@ -69,5 +69,51 @@ assert.equal(p1.hints, undefined, "无 hints 时不产生");
 const p2 = sanitizeLlmResult({ confidence: "high", hints: ["b", "a"] }, cfg);
 assert.equal(p2.confidence, "high", "提升生效");
 assert.deepEqual(p2.hints, ["a", "b"], "hints 追加去重");
+
+// ── 0.5.11：resolveRoute 当前模型优先（用户定稿：后台判定=当前会话模型）──
+const ctx3 = {
+  llm: {
+    listProviders() {
+      return [{ id: "deepseek-official", name: "DeepSeek" }];
+    },
+    async listModels() {
+      // 列表第一个=dsf（基础模型）——旧实现用它；新实现必须用 currentSelection
+      return [{ id: "dsf" }, { id: "dsfve" }];
+    }
+  },
+  get(service) {
+    if (service === "agentDefaultModel") {
+      return {
+        currentSelection() {
+          return { provider: "deepseek-official", model: "dsfve" };
+        }
+      };
+    }
+    return undefined;
+  }
+};
+{
+  const route = await resolveRoute(ctx3);
+  assert.equal(route?.model, "dsfve", "后台判定用当前会话模型（dsfve），不是列表第一个（dsf）");
+  assert.equal(route?.provider, "deepseek-official", "provider 取当前选择的 provider");
+}
+// 无 agentDefaultModel → 回退列表兜底
+const ctx4 = {
+  llm: {
+    listProviders() {
+      return [{ id: "deepseek-official" }];
+    },
+    async listModels() {
+      return [{ id: "dsf" }, { id: "dsfve" }];
+    }
+  },
+  get() {
+    return undefined;
+  }
+};
+{
+  const route = await resolveRoute(ctx4);
+  assert.equal(route?.model, "dsf", "无当前选择服务 → 回退列表第一个（兜底行为不变）");
+}
 
 console.log("llm-understander.test.js PASS");

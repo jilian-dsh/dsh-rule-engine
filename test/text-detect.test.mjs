@@ -97,10 +97,20 @@ session.turn.getDateSeen = false;
 let hits = detectViolations({ configs: state.configs, session, text: "我昨天完成了" });
 assert.ok(hits.some((h) => h.ruleId === "2"), "time word violation");
 
-// Get-Date 后不报
+// Get-Date 后不报（仅"过去事件时间"仍需证据标注——新规则 2②；纯当前时间词无此要求）
 session.turn.getDateSeen = true;
-hits = detectViolations({ configs: state.configs, session, text: "我昨天完成了" });
-assert.ok(!hits.some((h) => h.ruleId === "2"), "no time violation after Get-Date");
+hits = detectViolations({ configs: state.configs, session, text: "现在是 2 点" });
+assert.ok(!hits.some((h) => h.ruleId === "2"), "no time violation after Get-Date（当前时间词无需证据）");
+// ── 0.5.11 规则 2②：具体时间词 + 无事件证据 → 违规；"之前"模糊词不命中；带证据标注合规 ──
+{
+  // 模糊词"之前"不命中检测（用户定稿：只有具体时间词才命中）
+  assert.ok(!detectViolations({ configs: state.configs, session, text: "之前我统计过 13 条" }).some((h) => h.ruleId === "2"), "「之前」模糊词不命中规则 2");
+  // 具体时间词 + 已 Get-Date 但无事件证据标注 → 违规（规则 2②：Get-Date 当前时间≠过去事件证据）
+  const hNoEv = detectViolations({ configs: state.configs, session, text: "8 月 27 日晚上统计出 13 条" });
+  assert.ok(hNoEv.some((h) => h.ruleId === "2"), "具体时间词无事件证据标注 → 违规（规则 2②）");
+  // 具体时间词 + 事件证据标注 → 合规
+  assert.ok(!detectViolations({ configs: state.configs, session, text: "8 月 27 日晚上统计出 13 条（日志 ts=2026-08-27T15:21:05Z）" }).some((h) => h.ruleId === "2"), "带日志 ts 证据标注 → 合规");
+}
 
 // 承诺词
 hits = detectViolations({ configs: state.configs, session, text: "包在我身上，肯定能修好" });
@@ -236,5 +246,31 @@ assert.ok(hits.some((h) => h.ruleId === "14"), "rule14 still triggers without se
 // extractAssistantText
 const msg = { content: [{ type: "text", text: "hello" }, { type: "image", text: "ignored" }] };
 assert.equal(extractAssistantText(msg), "hello");
+
+// B3（2026-08-29 检测层锁定）：无引号转述不触发规则 7；时间词转述不触发规则 2
+{
+  const sB3 = getSessionState(state, "sb3");
+  sB3.turn.getDateSeen = true;
+  let hs = detectViolations({ configs: state.configs, session: sB3, text: "用户之前说万无一失，但引用需要标注来源" });
+  assert.ok(!hs.some((h) => h.ruleId === "7"), "B3: 无引号转述'万无一失'不算承诺");
+  const cfg2 = understandRule({
+    index: "2",
+    title: "时间信息须真实（执行等级：B + D）",
+    level: "B+D",
+    body: "- **触发**：时间。\n- **检查**：先核对。\n- **动作**：审计。"
+  });
+  const cfg7 = understandRule({
+    index: "7",
+    title: "承诺保守（执行等级：B）",
+    level: "B",
+    body: "- **触发**：承诺。\n- **检查**：检测。\n- **动作**：审计。"
+  });
+  hs = detectViolations({ configs: state.configs.concat([cfg2]), session: sB3, text: "你说昨天就提交了" });
+  assert.ok(!hs.some((h) => h.ruleId === "2"), "B3: 时间词转述（你说昨天…）不触发规则 2");
+  hs = detectViolations({ configs: state.configs.concat([cfg2]), session: sB3, text: "我昨天完成了" });
+  assert.ok(hs.some((h) => h.ruleId === "2"), "B3: 第一人称时间词仍触发规则 2");
+  hs = detectViolations({ configs: state.configs.concat([cfg7]), session: sB3, text: "我说保证今天修好" });
+  assert.ok(hs.some((h) => h.ruleId === "7"), "B3: 第一人称'我说保证'仍按承诺处理");
+}
 
 console.log("text-detect.test.js PASS");

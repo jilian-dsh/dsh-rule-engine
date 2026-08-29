@@ -8,6 +8,8 @@ const tests = [
   "./text-detect.test.mjs",
   "./version-guard.test.mjs",
   "./patterns.test.mjs",
+  // B1 热词学习（2026-08-29）：自设 DSH_HOME + 动态 import（hotwords/intent 均运行时读 env）——守住 patterns 后、guard 前
+  "./hotwords.test.mjs",
   "./consistency.test.mjs",
   "./silent-error.test.mjs",
   "./requirements-baseline.test.mjs",
@@ -40,7 +42,15 @@ const tests = [
   // v0.5.9 白名单 v2 存储格式：纯函数（不 import index.js）——紧随 semantic-gate 之后
   "./whitelist.test.mjs",
   // v0.5.10 分析通道/写类判定/已知坑召回：纯函数（不 import index.js）——固定末尾
-  "./analysis-channel.test.mjs"
+  "./analysis-channel.test.mjs",
+  // v0.5.10 建议1① ask 答复结构化：纯函数（authorization 依赖）——固定末尾
+  "./classify-ask.test.mjs",
+  // v0.5.11 规则 24 守卫链覆盖（跨工具一致性）：纯函数（自设 DSH_HOME，不 import index.js）——固定末尾
+  "./guardchain-coverage.test.mjs",
+  // v0.5.12 阶段一（2026-08-28）：A1 词表/A3 @引用/B1 只读/C1 授权统一/E1 打标——纯函数 + guardDecision 集成
+  "./phase1-fix.test.mjs",
+  // v0.5.13 阶段二+三：B2 委派/C2 中文路径/C3 ask 节流/D1-D3 注入/F1 规则2/F2 verify-gap 回归
+  "./realcase-regression.test.mjs"
 ];
 
 for (const t of tests) {

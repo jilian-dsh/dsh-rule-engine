@@ -190,12 +190,25 @@ res = validateEditedFile(
 );
 assert.equal(res.ok, true, "inline version badge change should pass");
 // 同一行内非版本号数字变化仍应拦截（前后缀相同但中间不是版本号语义——保守起见仍按版本号模式放行，这里验证数字之外的改动不误放）
+// 0.5.11（用户定稿）：单行编辑 old 唯一匹配 → 位置正确 = 语义编辑，不再拦（blue→green 是正常徽章后缀更新；
+// 旧断言"应失败"是把"单行改动"当"可疑覆盖"——正是本轮放宽对象；多行删除不豁免）
 res = validateEditedFile(
   "![version](https://img.shields.io/badge/version-1.4.3-blue)\n",
   "![version](https://img.shields.io/badge/version-1.4.3-green)\n",
   "![version](https://img.shields.io/badge/version-1.4.3-blue)",
-  "![version](https://img.shields.io/badge/version-1.4.3-green)"
+  "![version](https://img.shields.io/badge/version-1.4.3-green)",
+  true
 );
-assert.equal(res.ok, false, "same-version different-suffix change should still fail");
+assert.equal(res.ok, true, "single-line unique rewrite passes (0.5.11 放宽)");
+// 0.5.11：真覆盖仍拦——new 既不包含 old、也不被 old 包含、非行序、且非单行唯一重写
+//（删除/缩短 = new 为 old 子串，本就放行——用户删行是正常编辑；防的是"静默替换成无关内容"）
+res = validateEditedFile(
+  "line1\nline2\nline3\n",
+  "line1\nREPLACED-WHOLE\n",
+  "line2\nline3",
+  "REPLACED-WHOLE",
+  true
+);
+assert.equal(res.ok, false, "multi-row covered by unrelated content (真覆盖) still fails (0.5.11)");
 
 console.log("version-guard.test.js PASS");

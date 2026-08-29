@@ -568,4 +568,20 @@ const stateE3b = makeState();
 hit = guardDecision(stateE3b, { name: "ask_user_question", arguments: { questions: [{ question: "是否允许写入 D:/target/file.txt？" }] } });
 assert.equal(hit, null, "ask allowed when no matching auth");
 
+// D3 真值驱动锁定（2026-08-29 B2：README 曾写"随 D1+C1 自然对齐"——空话，需真锁用例）：
+// 拦截文案"已有授权范围 [...]"描述 = describeAuth 真实授权池，非硬编码记录
+const stateD3 = createState();
+stateD3.configs = [rule12a];
+getSessionState(stateD3, "global").authorizations.push({ type: "write", pathPrefix: "d:/allowed", at: Date.now(), source: "test" });
+hit = guardDecision(stateD3, { name: "edit", arguments: { file_path: "d:/other.txt", old_string: "a", new_string: "b" } });
+assert.ok(hit && hit.ruleId === "12A", "D3: 超出授权范围仍被拦");
+assert.match(hit.reason, /已有授权范围 \[/, "D3: 文案含真实池锚词");
+assert.match(hit.reason, /write｜路径 d:\/allowed/, "D3: 描述来自真实授权池（describeAuth 输出）");
+const stateD3b = createState();
+stateD3b.configs = [rule12a];
+getSessionState(stateD3b, "global").authorizations = [];
+hit = guardDecision(stateD3b, { name: "edit", arguments: { file_path: "d:/other.txt", old_string: "a", new_string: "b" } });
+assert.ok(hit && hit.ruleId === "12A", "D3: 无授权被拦");
+assert.match(hit.reason, /已有授权范围 \[无\]/, "D3: 无授权描述=无（真值，非硬编码残留）");
+
 console.log("guard.test.js PASS");
