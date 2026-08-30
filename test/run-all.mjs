@@ -50,7 +50,11 @@ const tests = [
   // v0.5.12 阶段一（2026-08-28）：A1 词表/A3 @引用/B1 只读/C1 授权统一/E1 打标——纯函数 + guardDecision 集成
   "./phase1-fix.test.mjs",
   // v0.5.13 阶段二+三：B2 委派/C2 中文路径/C3 ask 节流/D1-D3 注入/F1 规则2/F2 verify-gap 回归
-  "./realcase-regression.test.mjs"
+  "./realcase-regression.test.mjs",
+  // v0.5.12（F2 打标指纹，2026-08-30）：纯函数（label-fingerprint 独立无 index 依赖）——固定末尾
+  "./label-fingerprint.test.mjs",
+  // v0.5.12（F5 契约类别白名单，2026-08-30）：纯函数（contract 依赖）——固定末尾
+  "./contract-categories.test.mjs"
 ];
 
 for (const t of tests) {
