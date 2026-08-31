@@ -208,7 +208,7 @@ bash scripts/build.sh
 
 交付前体检（0.5.7 起）：`node scripts/verify-all.mjs`（七层：语法/单元/组合冒烟/工具箱覆盖/守卫链覆盖/关联一致性/真实判例）与 `node scripts/health-audit.mjs`（找茬）——详见「质量与验证」。
 
-发布：`node ../../scripts/release-plugin.mjs <插件目录> <版本号>`（一键 npm + git + GitHub Release，见 `scripts/release-plugin.mjs` 注释）。
+发布：`node scripts/release-plugin.mjs <插件名> <版本号>`（一键 npm + git + GitHub Release；发布脚本随插件仓库管理——`scripts/release-plugin.mjs`；改发布脚本后须 `--dry-run` + 代码审查，注意 dry-run 不覆盖 git 段）。
 
 ## License
 
