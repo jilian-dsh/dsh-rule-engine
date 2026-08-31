@@ -128,6 +128,12 @@ assert.equal(askResultApproved({ answers: [{ selected: ["只做第 1 项回合�
   assert.equal(broadScopes.length, 1, "宽泛执行也有一个范围");
   assert.equal(broadScopes[0].type, "any", "宽泛执行推导 any 类型（不被误限为 command）");
   assert.equal(broadScopes[0].pathPrefix, "", "宽泛执行全局路径");
+  // 2026-08-31（宽泛指令缺陷锁定）："按流程执行残余一处理" 类无具体操作的宽泛指令
+  // → any/全局（规则 22⑤ 宽泛指令=全局范围；不得收窄为 analysis/command——本会话 ERR-VXAYE4 反例）
+  const flowScopes = scopesFromIntents(parseUserIntents("请按流程执行残余一处理"));
+  assert.equal(flowScopes.length, 1, "宽泛流程指令一个范围");
+  assert.equal(flowScopes[0].type, "any", "宽泛流程指令推导 any（不被误限为 analysis/command）");
+  assert.equal(flowScopes[0].pathPrefix, "", "宽泛流程指令全局路径");
   assert.ok(describeScopes(scopes).includes("delete"), "describeScopes 可读");
 }
 

@@ -222,5 +222,14 @@ assert.equal(parseUserIntents("选择①").hasExecute, true, "选择① = 执行
 assert.equal(parseUserIntents("采纳方案").hasExecute, true, "采纳 = 执行分点（词表补充）");
 // 只读词不因 PLAN_RE 抢跑（评估/分析仍按方案类处理，语义=展示/评估请求）
 assert.equal(parseUserIntents("评估这个风险").hasPlan, true, "评估 = 方案类（PLAN_RE 保持）");
+// 2026-08-31（方案+执行误判修复）："按已有方案执行/上述方案执行" = 执行分点
+//（方案词 + 强执行语 + 无产出请求词；区别于"给出执行方案"=方案请求）
+assert.equal(parseUserIntents("按已有方案顺序依次执行").hasExecute, true, "按已有方案顺序依次执行 = 执行分点");
+assert.equal(parseUserIntents("上述方案执行").hasExecute, true, "上述方案执行 = 执行分点");
+assert.equal(parseUserIntents("请按方案执行").hasExecute, true, "请按方案执行 = 执行分点");
+assert.equal(parseUserIntents("按方案继续").hasExecute, true, "按方案继续 = 执行分点");
+// 反例（防回归）：产出请求仍为方案类
+assert.equal(parseUserIntents("提供设计方案").hasExecute, false, "提供设计方案 ≠ 执行分点");
+assert.equal(parseUserIntents("我需要一个方案").hasExecute, false, "我需要一个方案 ≠ 执行分点");
 
 console.log("intent.test.mjs PASS");

@@ -6,6 +6,7 @@ import { understandRule } from "../lib/core/understander.js";
 import { guardDecision } from "../lib/core/guard-core.js";
 import { parseUserIntents } from "../lib/core/intent.js";
 import { scopesFromIntents } from "../lib/core/authorization.js";
+import { TEST_DEFAULT_MAP } from "./helpers.mjs";
 
 // 阶段 1 P0（RB-01）：同一回复分点精确配对——"修改 A 并删除 B"
 process.env.DSH_HOME = join(tmpdir(), "dsh-rule-engine-phase1-test");
@@ -50,7 +51,7 @@ process.env.DSH_WORKSPACE = process.cwd();
     title: "沟通直接性（执行等级：C+D）",
     level: "C+D",
     body: "- **触发**：所有交流场景。\n- **检查**：疑问句禁止变更类工具调用。\n- **动作**：拒绝。\n- **豁免**：非疑问句+动作词；授权答复；只读/展示类。"
-  });
+  }, { defaultMap: TEST_DEFAULT_MAP });
   const state = createState();
   state.configs = [rule22];
   const g = getSessionState(state, "global");

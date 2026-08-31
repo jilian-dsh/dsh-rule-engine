@@ -4,9 +4,20 @@
 //   content 内嵌 <system-reminder> 注入块（官方注入机制烤进 content）。
 // 旧引擎误取 d.message → 永远提取空文本 → 全拦（空 intents）/ 全放行（跳过）两个错误方向，本测试按官方结构锁定行为。
 import assert from "node:assert/strict";
+import { mkdirSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { setWorkspaceRoot } from "../lib/core/patterns.js";
 
 setWorkspaceRoot("D:\\example workspace\\dsh-project");
+
+// 2026-08-31（遗留项修复）：固定隔离 DSH_HOME，且目录真实创建——
+// 此前依赖前置测试残留的环境状态（index.js 加载刻的 DSH_HOME 可能是已被删除的随机临时目录），
+// audit() 的 appendFileSync 写失败被 catch 静默吞掉（audit.js L24），mount-audit-error 断言
+// 读"最近 N 条"恒红（环境既有失败）。固定目录 + 创建 → 写/读同源、无滚动。
+const INTEG_HOME = join(tmpdir(), "dsh-rule-engine-integration-test");
+mkdirSync(INTEG_HOME, { recursive: true });
+process.env.DSH_HOME = INTEG_HOME;
 
 // 自包含规则集：run-all 中前置测试（guard.test.mjs）会污染 process.env.DSH_HOME，
 // 动态 import 保证 index.js 在本文件设置完成后加载，并将 configs 固定为测试规则、
@@ -216,8 +227,9 @@ assert.equal(extractUserText(undefined), "", "undefined → 空");
   await new Promise((resolve) => setTimeout(resolve, 50));
   assert.ok(!hasRemoveHint(), "A1: 审计命令被拦（isError）不注入误导性移除提示");
   const { readAuditLog } = await import("../lib/core/audit.js");
+  // 2026-08-31：视窗放宽（隔离目录下仅测试自身写入；防未来滚动/小波动）
   assert.ok(
-    readAuditLog(50).some((e) => e.kind === "mount-audit-error" && e.session === SID4),
+    readAuditLog(500).some((e) => e.kind === "mount-audit-error" && e.session === SID4),
     "A1: 被拦审计留痕 mount-audit-error"
   );
 

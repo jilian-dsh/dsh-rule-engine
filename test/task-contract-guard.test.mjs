@@ -1,7 +1,16 @@
 import assert from "node:assert/strict";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { createState, getSessionState } from "../lib/core/state.js";
 import { guardDecision } from "../lib/core/guard-core.js";
 import { defaultContract } from "../lib/core/contract.js";
+
+// 测试隔离（2026-08-31）：本测试此前漏设 DSH_HOME——前序 parser.test 的 cleanupTempHome 会
+// 删除环境变量 → resolveDshHome 回落真实 ~/.dsh → maybeReloadIfChanged 读真实 AGENTS.md
+// 灌入测试 state（规则 9 全称标题实证）；剥离后真实规则空 handler 走 hints 兜底变敏感暴露此缺陷。
+// 与其他测试同款：固定 tmp DSH_HOME（无 AGENTS.md）→ maybeReloadIfChanged 容错保持空 configs。
+process.env.DSH_HOME = join(tmpdir(), "dsh-rule-engine-taskcontract-test");
+process.env.DSH_WORKSPACE = process.cwd();
 
 // review 模式写文件应被任务契约硬拦
 {

@@ -6,6 +6,7 @@ import { understandRule } from "../lib/core/understander.js";
 import { guardDecision, markAskSeen } from "../lib/core/guard-core.js";
 import { parseUserIntents } from "../lib/core/intent.js";
 import { scopesFromIntents } from "../lib/core/authorization.js";
+import { TEST_DEFAULT_MAP } from "./helpers.mjs";
 
 // 可观测性（阶段 0，2026-08-24）：放行审计回调测试
 process.env.DSH_HOME = join(tmpdir(), "dsh-rule-engine-observe-test");
@@ -16,7 +17,7 @@ const rule12a = understandRule({
   title: "执行前确认（执行等级：C+D）",
   level: "C+D",
   body: "- **触发**：创建/删除/覆盖/移动/执行命令/下载/提交等。\n- **检查**：敏感操作需授权证据。\n- **动作**：无授权→拒绝。\n- **豁免**：只读、工作区低风险新建。"
-});
+}, { defaultMap: TEST_DEFAULT_MAP });
 
 function makeState12a() {
   const state = createState();
@@ -88,7 +89,7 @@ function makeState12a() {
     title: "沟通直接性（执行等级：C+D）",
     level: "C+D",
     body: "- **触发**：所有交流场景。\n- **检查**：疑问句禁止变更类工具调用。\n- **动作**：拒绝。\n- **豁免**：非疑问句+动作词；授权答复；只读/展示类。"
-  });
+  }, { defaultMap: TEST_DEFAULT_MAP });
   const state22 = createState();
   state22.configs = [rule22];
   const g22 = getSessionState(state22, "global");

@@ -54,11 +54,22 @@ const tests = [
   // v0.5.12（F2 打标指纹，2026-08-30）：纯函数（label-fingerprint 独立无 index 依赖）——固定末尾
   "./label-fingerprint.test.mjs",
   // v0.5.12（F5 契约类别白名单，2026-08-30）：纯函数（contract 依赖）——固定末尾
-  "./contract-categories.test.mjs"
+  "./contract-categories.test.mjs",
+  // T2 会话寻址（2026-08-31）：自设 DSH_HOME + import index.js（同 phase1b 缓存前提）——固定末尾
+  "./session-addressing.test.mjs"
 ];
 
 for (const t of tests) {
   console.log(`\n== ${t} ==`);
+  // consistency-live：真实环境守门测试——必须在真实 DSH_HOME 下运行（tmp 隔离 → SKIP 失去守门价值）
+  // 特批：跑前暂存并删除 DSH_HOME（resolveDshHome 回落真实 ~/.dsh），跑后恢复
+  if (t === "./consistency-live.test.mjs") {
+    const saved = process.env.DSH_HOME;
+    delete process.env.DSH_HOME;
+    await import(t);
+    if (saved !== undefined) process.env.DSH_HOME = saved;
+    continue;
+  }
   await import(t);
 }
 

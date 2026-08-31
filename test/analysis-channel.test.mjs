@@ -7,7 +7,8 @@ const {
   isAnalysisOp,
   isAnalysisScratchPath,
   extractAnalysisScratchPaths,
-  matchKnownPitfall
+  matchKnownPitfall,
+  isVerificationCommand
 } = await import("../lib/core/patterns.js");
 
 // ── 写类判定（建议3 修复：Write-Output 不再被 write 子串误杀）──
@@ -88,6 +89,26 @@ test("isAnalysisOp：下载到临时区", () => {
     false,
     "下载到非临时区不豁免"
   );
+});
+
+// 2026-08-31（验证通道放行面，用户定稿）：验证类命令独立放行 / 执行类保持授权
+test("isVerificationCommand：验证类放行面", () => {
+  assert.equal(isVerificationCommand("node test/consistency-live.test.mjs"), true, "单测文件通配");
+  assert.equal(isVerificationCommand("node test/run-all.mjs"), true, "run-all 汇总");
+  assert.equal(isVerificationCommand("node scripts/verify-all.mjs"), true, "verify-all 体检");
+  assert.equal(isVerificationCommand("node scripts/publish-aptitude-check.mjs"), true, "发布门禁");
+  assert.equal(isVerificationCommand("node scripts/release-plugin.mjs dsh-rule-engine --dry-run"), true, "发布脚本 dry-run=只读推导");
+  assert.equal(isVerificationCommand("node scripts/release-plugin.mjs dsh-rule-engine"), false, "发布链无 dry-run=执行类（授权）");
+  assert.equal(isVerificationCommand("npm publish --dry-run"), true, "npm publish --dry-run 只读");
+  assert.equal(isVerificationCommand("npm publish"), false, "npm publish=执行类");
+  assert.equal(isVerificationCommand("gh api repos/x/y/releases/latest"), true, "gh api GET 只读");
+  assert.equal(isVerificationCommand("gh api -X POST repos/x/y/issues"), false, "gh api POST=写（不豁免）");
+  assert.equal(isVerificationCommand("npm whoami"), true, "认证查询");
+});
+test("isAnalysisOp：验证命令独立放行（任何回合）", () => {
+  assert.equal(isAnalysisOp("node", { command: "node test/consistency-live.test.mjs" }), true, "验证命令走分析通道");
+  assert.equal(isAnalysisOp("node", { command: "node scripts/release-plugin.mjs dsh-rule-engine" }), false, "执行类不进（0.5.11 防借道回归）");
+  assert.equal(isAnalysisOp("pwsh", { command: "npm view dsh-rule-engine" }), true, "npm view 走只读词表（完整链）");
 });
 
 // ── 已知坑召回 ──

@@ -5,7 +5,7 @@
 
 DSH 规则执行引擎 v3 的插件实现。它把 `~/.dsh/AGENTS.md` 当作唯一真相源，自动解析规则四要素与执行等级，再通过「工具守卫 + 文本检测 + 时序检查 + 审计台账」执行用户规则，而不是内置一套与用户无关的安全清单。
 
-> 当前版本 **0.5.11**（2026-08-29 已发布三通道：npm=0.5.11 / git 1de7eaf / Release v0.5.11（tgz）；上一版 0.5.10 = git 23a3c0f）。本次发布含 0.5.10 git 提交欠账 7 文件补齐。本插件面向"规则机器化执行"：规则写在 AGENTS.md 里，引擎负责让它们真的被遵守；所有规则动态解析，规则增删改后无需重写插件。
+> 当前版本 **0.5.12**（2026-08-30 已发布三通道：npm=0.5.12 / git 269ea91 / Release v0.5.12 带 tgz；上一版 0.5.11 = 2026-08-29，git 1de7eaf）。**工作区当前迭代 0.5.13**（2026-08-31：通用化——声明式绑定/禁用语义/会话寻址/验证通道/发布适用性门禁，发布待授权）。本插件面向"规则机器化执行"：规则写在 AGENTS.md 里，引擎负责让它们真的被遵守；所有规则动态解析，规则增删改后无需重写插件。
 
 ## 项目背景
 
@@ -17,6 +17,18 @@ DSH 规则执行引擎 v3 的插件实现。它把 `~/.dsh/AGENTS.md` 当作唯�
 - 本插件所有规则均从 `AGENTS.md` 动态解析，规则增删改后无需重写插件。
 
 当前实现基于已有的 `AGENTS.md` 规则体系拓展，社区暂无类似插件供参考（大概率为该等约束可能限制开发自由性，不适用于专业编程人员），**可能存在大量不完备、误判或边界问题**。欢迎任何使用者提出调整建议、提交 issue 或 PR。项目仍处于“可运行但需要持续打磨”的阶段。
+
+## 通用性调整（0.5.13，2026-08-31）
+
+本插件定位：**通用规则执行引擎**——任何用户的 AGENTS.md 规则集均可使用；本机工作流偏好仅作默认兜底（配置层），不含任何强制绑定。
+
+- **声明式绑定**：规则正文可写 `<!-- handler: xxx -->`（或经插件配置 `handlerOverrides: {规则编号: 执行器名}`）显式绑定引擎执行器；未声明的规则按"纯自证"处理（参与匹配/自证提示，不参与机器硬拦）；
+- **执行器语义名**：声明/配置可写语义名（`approval`/`backup`/`inline-command`…），自动映射到内部执行器；直接写内部名（`rule12a-approval` 等）同样兼容；
+- **禁用语义**：管理器禁用的规则以"禁用占位"存在——`/guard rules` 显示"（已禁用）"，不参与硬拦/纠察；恢复启用后自动重新生效（禁用 ≠ 删除，不再"消失"）；
+- **无 AGENTS.md 也可用**：无规则文件时引擎零错加载、零规则、零误拦（发布门禁验证）；
+- **本机偏好表下沉配置**：内置默认偏好表已从代码移除——通用部署=空表（代码零本机编号）；本机偏好经 `rule-engine.json` 的 `handlerDefaultMap` 提供（可整体替换/清空，引擎升级不丢）；
+- **验证通道**：调研/验证类操作（只读、临时脚本、验证命令如 `npm test`/`verify-all`/`--dry-run` 等）如期放行；执行类（发布/注入/安装/提交等）仍按授权语义严格执行；
+- **发布物卫生**：lib 源码不含个人标识（仓库信息从 package.json 解析，非硬编码）；`scripts/publish-aptitude-check.mjs` 为发布适用性门禁（无 AGENTS.md 冷启动 / 空白规则 / 任意编号 / 标识扫描，挂 verify-all 第 8 层）。
 
 ## 功能分层
 
@@ -46,105 +58,23 @@ DSH 规则执行引擎 v3 的插件实现。它把 `~/.dsh/AGENTS.md` 当作唯�
 - `node scripts/health-audit.mjs` —— 找茬清单：近 24h 失败/降级类统计（intent-llm 失败、judge-unavailable、verify-gap、inject-skip…）+ 关键导出接线交叉（疑似未接线 = 告警）——"失败可见化"，不再有静默躺 20 小时的降级；
 - 执行协议（本仓库自身交付纪律）：方案冻结单（范围/影响面/测试计划/失败预测）→ todo 化 → 小步闭环（每改动立即 `node --check`）→ 对账交付（计划×实际逐项 ✅/❌/跳过原因）。**验收五查（0.5.11 用户定稿：验收 = 改动关联产物全做一遍，不是只跑测试）**：① 本次改动的**全部**测试/用例在 run-all 或对应门禁中收录；② README/手册/版本记录与引擎语义成对（新增行为必写文档）；③ 调用点 grep：改公共函数签名/导出 → 全部调用点逐一核对；④ 相关测试断言同步（本例：consistency 死映射 17→16）；⑤ 误删/错改产物清理（错误版测试/脚本删除后无残留引用）。**⑥ 实弹验证（0.5.11 用户定稿）**：改动在运行态真实生效 = 重启 DSH 加载（profile 为 link: 时重启即生效）→ 运行态验证（行为/守卫/日志实拍）→ 通过后**才**允许进入发布——**发布必须以"重启生效+验证通过"为前提，未生效验证不得发布**（顺序：改 → 测试 → 重启生效 → 实弹验证 → 发布）。任一未做 = 交付不算完成。**⑦ 发布前置（2026-08-28 用户定稿）**：发布前必须先本地跑测试——本项目测试（test-service/npm test）+ 验证脚本 + 运行态实测（截图/输出证据），未全过不得发布；发布后核对三处成对——README 徽章=package.json 版本（release 脚本自动 bump，需验证）、三通道（npm/git/Release）逐个确认成功（含 Release 带正式 tgz asset）；发布后遗留（徽章/README 成对缺口）必须当场修。**发布流程三阶段（2026-08-29 用户定稿）**：阶段 A **内容验证（发布前，只读/本地）**——A1 测试全过（run-all+verify-all+loader+运行态实测）、A2 dry-run 推导正确（`release-plugin.mjs <pkg> --dry-run`：oldVer→nextVer+徽章变化）、A3 版本三处一致（徽章=package.json=发布目标号）、A4 Asset/tag 预检（tgz 已 pack；目标 tag 预检不存在——防 ㉙ 同 tag 占位）；阶段 A0 **授权**——展示改动清单+版本号 → ask_user_question 明确授权（规则 26⑤：先授权→运行脚本）；阶段 B **一键三通道**——`release-plugin.mjs`（publish→push→Release 带 tgz）；阶段 C **事后核对**——三通道确认（npm view/git tag/gh api asset）+ 徽章/README 成对复核 + 本机 link 不重装 + 沉淀（版本记录/engram）。**顺序铁律：A→A0→B→C，验证在发布前（A），不是发布后补（C）——发布内容经确认无误才允许三通道。**
 
-> **版本状态说明（2026-08-29 更新）**：下方 0.5.11-0.5.14 章节为**发布前的工作区迭代记录**——对外统一发布为 **0.5.11**（2026-08-29 三通道：npm=0.5.11 / git 1de7eaf / Release v0.5.11 带 tgz）。0.5.11→0.5.14 是工作区内部迭代号，发布时统一以对外号为准；发布同时补齐 0.5.10 git 提交欠账 7 文件（baseline/intent/judge/llm-intent/semantic/tool-catalog/whitelist.js——npm 包本已包含，git 通道缺失）。
+> **版本状态说明（2026-08-31 更新）**：0.5.11 与 0.5.12 均已独立发布（见上）。0.5.13 = 当前工作区迭代（发布前统一以对外号为准）。历史说明：0.5.11 发布时含 0.5.10 git 提交欠账 7 文件补齐（baseline/intent/judge/llm-intent/semantic/tool-catalog/whitelist.js——npm 包本已包含，git 通道缺失）。
 
-## 0.5.14（2026-08-28 追加，阶段三收尾：D1-D3 注入 / F1-F2 时序收紧 / 回归集第 8 层）
+## 版本历史（摘要）
 
-> 背景：阶段二之后剩余全部任务（用户"请按顺序执行剩下的任务"）——注入语义、时序竞态、交付闸门收紧，+真实场景回归常驻化。
+> 更早版本（0.1.0-0.5.5）与本机历史要点见 git 历史；各版本内部"用户定稿"等决策细节不再随发布物携带。
 
-- **D1 注入文案去命令化 + 静态检查**（index.js）：`[规则引擎]` 注入若含"请直接执行/请立即/不要再"类命令式短语会驱动模型越过用户直接行动（实弹：节流注入后模型跳过用户回复执行）；修法 = maybeInject 入口命令词守卫（INJECT_COMMAND_RE 命中即拒绝投递+审计 `inject-command-gated`），历史文案全量改写陈述式（__ask-rejected/__ask-throttle/__engram-gap 三处漏网被守卫抓出修复）；
-- **D2 注入投递降噪**（index.js）：不可投递 agent（子代理/已销毁）审计 reason 标注"（D2 预期降噪）"，与真实失败区分；
-- **D3 注入授权断言真值驱动**（2026-08-29 测试锁定，B2）：注入不再断言"已有授权"（描述权交给裁决器 describeAuth 真实池）；锁定 = guard.test.mjs「D3 真值驱动锁定」段（有授权 → 文案含真实池描述 write｜路径 d:/allowed；无授权 → 显式"无"）；
-- **F1 规则 2 时序竞态**（text-detect.js/index.js）：assistant/message 检出时间词违规不再立即投递——Get-Date 工具常在本回合后续步骤才执行（实弹：correct 早于 Get-Date 放行）；改为 turn/end 复核（getDateSeen 定案 → 已调用即撤销不投递，审计 `rule2-resolved`）；detectViolations 保留判定、新增 detectTimeRule 独立函数；
-- **F2 verify-gap 词面收紧**（index.js）：`/完成/` 裸词太宽（"完成社区检索/尚未完成"误触）→ 强完成声明模式 + 否定/进行态排除（LLM 裁决层兜底不变）；
-- **回归集第 8 层**：`test/realcase-regression.test.mjs`——真实场景常驻（顿号路径+doc 读取 COM / ask 未响应≠拒绝 / 子代理委派 / 注入文案命令词静态检查 / 规则 2 时序 / 意图事故原文），收录 run-all；**下次任何改动必过这层**；
-- **质保**：verify-all 七层 VERIFY ALL OK + loader-smoke PASS。
-
-## 0.5.11-pre 交接执行（2026-08-29 追加：A1 审计误报 / B2 D3 锁定 / B3 引述转述）
-
-- **A1 审计命令被拦 ≠ 审计失败**（index.js tool/result 分支拆分）：旧逻辑 `isError || auditOutputFailed` 合并两者——审计命令被规则 22 拦截/执行失败（无输出）也记 mount-audit-fail 并注入"先移除多余挂载"（误导：审计根本没执行，曾引导模型误移除正确挂载）；修复 = auditOutputFailed（真 DUPLICATES）→ mount-audit-fail + 注入不变；isError（无审计输出）→ mount-audit-error 留痕、不注入；通过 → revision 同步不变；测试锁定 session-events 场景 A/B/C；
-- **B3 引述/转述语境通用豁免**（patterns.js `isQuoteOrParaphraseContext` + text-detect.js）：原规则 7 仅认引号 + 白名单标记词，"用户之前说万无一失"（无引号转述）误报；规则 2 无任何引述豁免（引述"你昨天说…"也报未核对）；修复 = 通用判定（引号包裹 8 字符 / 第三人称对象+说/表示/提到… before 14 字符 / 引述转述原文改成类标记），**第一人称"我说保证/我昨天完成"不豁免**（承诺转述不了自己）；规则 2 两处（detectViolations + detectTimeRule）接入；
-- **B1 词表热词学习（方案甲，2026-08-29 用户拍板）**：终结"每次手动补词"（v4.74/82 连补 4 轮仍漏）；机制 = LLM 意图兜底 prompt 新增 `actionWord` 字段，裁决 hasExecute=true 且词表未命中 → 学动作词入 `~/.dsh/rule-engine-hotwords.json`（`lib/core/hotwords.js`：上限 500/原子写/损坏容错/审计 `hotword-learn`）→ 下次 `intent.js` hasAction 直接命中（`ACTION_RE ∪ 热词`）；**热词只服务意图判定，绝不 bypass deny/授权**；手动补词（lexicon.js）保留且优先；测试 `test/hotwords.test.mjs`（容错/去重/拒收/命中/接入）已收录 run-all；
-- 质保：run-all ALL TESTS PASSED（含 A1 段 4 断言 + D3 锁定 4 断言 + B3 检测层 4 断言 + hotwords 10 断言）+ 冷加载探针 PASS；**运行态生效 = 重启 DSH 后实弹**（bundle 装配，热重载不生效）；
-
-## 0.5.13（2026-08-28 追加，阶段二：B2/B2 委派豁免 / C2 中文路径 / C3 ask 节流）
-
-> 背景：2026-08-28 事故链三处遗留（用户逐项拍板"先做 B2+C2+C3"）——子代理读文件被 ERR-L8QAXS 拦、
-> `D:\1、示例\...` 授权时被劈成 `d:/1`（ERR-LU50QQ）、**未回复 ask 被当"拒绝"节流**（用户"你也没给我时间回复啊"）。
-
-- **B2 委派/子代理回合豁免"无执行分点"**（guard-core `isDelegatedSession`）：官方子代理把任务 prompt 以 `source.kind="user"` 注入子会话（dsh-subagent-in-process-driver L204-207 实证），引擎按用户消息处理 → 任务书被判"无执行分点"→ 读文件被拦；修复 = 规则 22④"委派回合不做判定"的识别层落地（会话 meta.delegationDepth>0 / origin=subagent / parentSession 存在 → 跳过，审计 `delegated-skip` 留痕；**12A/13A 独立把关安全不降级**）；
-- **C2 中文顿号路径提取**（authorization.js PATH_TOKEN_RE）：`、`（中文顿号）从"非路径字符"黑名单移除——Windows 中文目录名常见（`D:\1、示例\...`），原正则在此截断 → 授权记录成 `d:/1`，真实操作匹配失败；稳妥边界：顿号后跟空格+新词可能合并（fail-closed 方向：提取过长 → 匹配失败 → 拦而非放，不放大授权）；
-- **C3 ask 节流区分"明确拒绝"与"未响应"**：新导出 `askResultRejected`（结果文本含拒绝词才算拒绝）+ REJECTION_WORDS_RE 修正（`否`不再误命中"是否"）；旧逻辑把**任何未批准**记入 askRejections 池 → 5 分钟内再 ask 被 __ask-throttle 拦——用户没回 ≠ 用户拒绝；现在未响应/超时仅审计 `auth-noanswer`，明确拒绝才入池（12A 授权证据把关不降级）；
-- **测试**：phase1-fix 扩展 B2/C2/C3 用例（子代理 meta 放行/顿号路径提取+授权闭环/拒绝词 vs 空结果）；makeState 防 mtime 重解析注入全套规则（测试洁净性）；
-- **质保**：verify-all 七层 VERIFY ALL OK + loader-smoke PASS。
-
-## 0.5.12（2026-08-28 追加，阶段一：事故驱动修复 / 用户逐项拍板）
-
-> 背景：2026-08-28 real-legal 会话事故——用户"请将建议书内容转化到业务通告"被规则 22 连拦 7 次（无执行分点）；
-> 授权后读取仍被拦（ERR-L8QAXS/LU50QQ）；注入提示被节流后模型越过用户回复直接执行。全部根因如下，逐条修复。
-
-- **A1 意图优先级修正**（intent.js）：动作词优先于方案词——"将建议书内容转化到业务通告中"含"建议"（PLAN_RE）却被判 plan → 无执行分点 → 拦；修正：`hasAction` 分支前置（含 `SPECIFIC_ACTION_RE` 区分宽泛动作词——"给出执行方案"仍是方案请求）；词表补 `转化/转换/读取/读(完|出|一下…)/展示/打开/提取/还原/导入/导出`（VERB_RE/TYPE_HINTS 同步）；
-- **A2 LLM 意图兜底同步等待**（index.js）：预取异步 vs 守卫同步的竞态——词表未命中时 LLM 兜底结果未到即按词表拦截；修正：turn 记录 `llmIntentPromise`，`tools/pre-execute` 首钩子对 `llm-pending` 回合等待（上限 300ms，超时降级词表）；
-- **A3 @文件引用信号**（intent.js）：用户消息含 DSH 官方 @file 引用语法（`@path`/`@"path with spaces"`/`@file.docx`）+ 处理动词 → 判执行分点；邮箱（a@b.com）不误伤（@ 前需非词字符边界）；
-- **B1 只读判定补强**（patterns.js）：读取 .doc 的 COM 命令（`$kwps.Documents.Open($dst,0,$true)` / `$doc.Content.Text`）与变量赋值段被"每段必须命中白名单 cmdlet"误判为写 → 只读豁免失效；修正：三档判定（写特征拒 / 白名单+分明无害段过 / 不认识的段保守拒），新增 MUTATING_METHOD_RE（.NET 写方法/SaveAs 等）与 COM_CONTENT_ASSIGN_RE（`$doc.Text=...` 写文档不被豁免）；只读优先于一切失拦链；
-- **C1 规则 22 粒度并入会话授权**（guard-core）：12D 已记录的 TTL 授权在下一回合被 22 粒度忽略（"只认本回合 scopes"）——授权分裂；修正：粒度检查并入 `session.authorizations` 中**带 TTL 且未过期**的授权；安全边界：无 expiresAt 的长期授权不放宽本轮（08-24 语义保留）；
-- **E1 打标链路修复**（guard-core/index.js/audit.js）：ERR 码随机生成但**不进日志**、/guard label 只认 UUID——打标断链（用户实测无法操作）；修正：makeHit 返回 errId → deny 审计条目落 `errId` 字段 → `/guard log` 显示 `ERR-xxxxxx` → `/guard label ERR-xxxxxx incorrect` 直接定位（新拦截文案引导到 ERR 码，不再让用户找事件号）；
-- **测试**：`test/phase1-fix.test.mjs`（事故原文回放：转化消息 execute / COM 只读放行 / 写命令仍拦 / 授权覆盖 / ERR 码链路），收录 run-all；
-- **质保**：run-all 全绿 + loader-smoke PASS + 热重载生效 + 运行时实弹（日志 errId 落盘实证）。
-
-## 0.5.11（2026-08-28 追加）
-
-> 0.5.11 = 判定内核第一轮（用户定稿"主从翻转"第一步）：安全洞两处修复 + 12A/22-7 判据同源。
-> 行为变化目标：问句回合不再能覆盖已存在文件；执行类脚本不再借"分析"通道放行。
-
-- **新建豁免补"新建"语义**（isLowRiskWorkspaceNew）：豁免原文 = 工作区内低风险**新建**——目标存在即不算新建，edit/write 已存在文件走正常授权（此前问句回合可覆盖既有文件，审计曾见 `edit service.js` 被判"低风险新建豁免"）；相对路径无法判定存在性 → 保守不豁免；
-- **分析通道移除脚本区语义豁免**（isAnalysisOp）：删除"repo `scripts/*.mjs` = 分析"分支——脚本名判不了脚本干什么（release-plugin.mjs 等执行脚本曾借道放行）；通道保留物理判据（严格只读/临时区写/下载到临时区），脚本语义判给模型；
-- **12A 与 22-7 判据同源**（guard-core rule12a-approval）：12A 分支接入 isAnalysisOp + isLowRiskWorkspaceNew 同一组豁免（此前 22-7 放行、12A 仍要求授权的不一致）；红线不变（工作区外不豁免）；
-- **后台判定模型 = 当前会话模型**（resolveRoute）：judge 裁决 / llm-intent 意图兜底 / 规则理解三处统一走 resolveRoute——此前取"模型列表第一个"（=dsf 基础模型，与主会话 dsfve 能力不一致，裁决结果与主会话判断脱节）；改为优先 `agentDefaultModel.currentSelection()`（官方当前模型选择，provider+model）→ 环境变量 → 列表兜底；
-- **测试**：patterns 新增存在性 4 断言；analysis-channel 改为新行为（脚本区不放行/执行脚本不放行/临时区写仍放行）；llm-understander 新增 resolveRoute 当前模型优先 2 断言（dsfve 优先、无当前选择回退列表兜底）；
-- **质保**：verify-all 七层全绿 + 冷加载探针 PASS。
-
-## 0.5.11 续批（2026-08-28，AGENTS.md 成对，用户逐项拍板）
-
-- **规则 13A 触发/检查行**：触发改为"删除/覆盖/迁移/批量删除**文件**等操作。修改**受保护**配置文件等操作"；硬拦检查同步为"删除/覆盖/迁移/批量删除文件、修改受保护配置文件类操作且无备份 → 拒绝"——引擎当初收窄到受保护配置是有意（普通配置修改海量，全纳入会过度打扰）；正解 = 正文向引擎对齐；
-- **规则 22 正文三处**：豁免明细由引擎清单维护；执行许可 = 执行许可词 + 执行语（词表引擎唯一维护，正文不枚举）；自证③括号去重指向时序⑤；
-- **词表唯一源（`lib/core/lexicon.js`）**：五表（执行许可/执行动作/疑问/状态信号/豁免工具清单）集中唯一；intent.js/authorization.js 删除各自重复定义改 import——消灭"正文 1 套 + 引擎 9 张"同语义多处定义的漂移根因（用户定稿：可用词表但不能有两套）；
-- **rule14 handler 删除**：纯 D 级自证、无执行分支 = 空转映射（consistency 断言 17→16 同步）；
-- **规则 19 保持 D 级**：实测升 C 会让 19 整条变 deny（C 级默认给硬动作）——⑧ 统一入口机器执行已由 __self-protect 独立承担（guard-core L241/248）；
-- **规则 24 机器执行修正**（用户两次纠偏）：24 目的 = 控制插件和工具装配、避免改坏（v3.37/踩坑 36 背景）——工具面正解 = 原文④"纳入同一套敏感/授权/备份/版本守卫"（跨工具一致性测试），**不是"归类必须 mutating"**（错误版曾枚举 35 工具名断言=mutating、且把 dev_stage_promote/demote 移出 artifact——查分类名不查守卫链，违反手册 v3.39"dev_stage 四件套纳入敏感授权检查、不改分类"）。修正：`test/guardchain-coverage.test.mjs`（33 个写/删/移工具 × 问句回合+无授权真实场景 → guardDecision，断言被拦或属豁免面，静默逃逸=红）；dev_stage 四件套恢复 artifact（授权检查由 12A/13A/24 链上覆盖）；verify-all 第 ⑥ 层接入。
-
-## 0.5.10（2026-08-27 追加）
-
-> 收编：用户审查后的 real-legal 会话建议（建议 2/3/4/5，依据本手册知识条目 K-01~K-06 批判性审查）+ 分析通道（用户多次提出的"只读分析需要写临时脚本/输出"痛点）+ 统一入口加固（2026-08-27 手册损伤事故复盘）。
-
-- **分析通道（单真源 `isAnalysisOp`）**：严格只读 ∪ 分析临时区写（`logs/` `.analysis-tmp/` `.backups/`）→ 任何回合放行 + 审计 `analysis-scratch`；**红线**（红线层在 guard-core）：受保护文件名/工作区外（isOutsideWorkspace）/删除移动/覆盖正式文件一律不豁免；**0.5.11（用户定稿）**：移除"分析脚本区 repo `scripts/*.mjs` 一律=分析"的语义豁免——脚本名判不了脚本干什么，执行类脚本（release/inject/uninject 等）曾借道放行（执行口径漏洞）；脚本语义判给模型，通道只保留物理判据（只读/临时区写/下载到临时区）；
-- **写类判定单真源**：self-protect / 22 / 13A 统一走 `isMutationCommand`——修复 `Write-Output` 被 `write` 子串误杀（WGO654/ES3VCD 案例：纯读命令查受保护文件名被误拦）；
-- **只读词表补全**：ForEach-Object / Get-ItemProperty / Get-Variable / Get-FileHash（多行"读+筛选+循环"组合判只读）；
-- **统一入口加固**（example-manual-write.mjs）：① 转义事故特征检测——表格行内字面 `\n` / `\$`（PowerShell 单引号转义事故模式，2026-08-27 手册坏行事故）→ 拒绝；② 写后结构校验——表格块列宽一致（±2 容忍）+ 手册版本记录行存在，不通过自动回滚；
-- **误判打标闭环（建议 4）**：所有硬拦文案尾部附「误判可打标：/guard label <事件号> incorrect」指引；health-audit 新增 deny 总数 vs incorrect/correct 打标占比统计（词表迭代量化依据）；
-- **已知坑召回（建议 5）**：工具错误文本命中特征表（SEC_E_NO_CREDENTIALS / ECONNREFUSED:7890 / EPERM 管道 / ERR_MODULE_NOT_FOUND）→ 审计 `error-hint` + 注入指向知识库提示（本轮去重、走投递资格链，不违反注入噪音治理）；
-- **质保**：新增强力测试（写类判定/分析通道/临时区红线/转义检测 REFUSED 实测/召回特征）+ verify-all 七层全绿 + 工具箱覆盖门禁回归。
-
-## 0.5.9（2026-08-27 追加）
-
-> 修复方向（用户"整体审查"要求，依据手册知识条目 K-01~K-06）：静态工具清单漏分类官方工具
-> （`run_code` 事故——code 模式会话一切被拦）→ 单一真源 + 前缀规则 + 覆盖门禁 + 白名单可视化。
-
-- **工具分类单真源**：规则 24④ 守卫与 unknown 处置统一读 `lib/core/tool-catalog.js` 唯一分类表（废弃双表——run_code 正是双表都漏的受害者）；
-- **官方工具全集补全**：59 个官方 tool-catalog 工具名全覆盖（`cordis_*`/`terminal_*`/`session_*`/goal/jobs/子代理/团队/plan-mode/官方保留传输 `run_code` 等）——Code Mode 会话（模型只能直呼 `run_code`）不再被"未知工具"拦死；
-- **前缀规则**：`mcp__`（变更类走授权，照 Claude Code `mcp__*` 范式）、`esr_`/`dev_` 等生态命名空间自动归类——**将来新增插件工具遵循惯例即被覆盖**（不再依赖静态枚举）；
-- **unknown 首调处置 `unknownPolicy`**：默认 `deny`（保守：`ask` 弹窗模式需真实场景实弹验证后才可作默认；配置 `"ask"` 可切换官方弹窗——approval 弹窗 allowed-once，无审批通道自动拒绝，官方 fail-closed 语义）；
-- **白名单 v2 带元数据**：`~/.dsh/rule-engine-tools.json` 升级为 `[{name,time,session}]`（**谁、何时、在哪个会话被放行**——可视化基础）；旧 `["name"]` 格式兼容加载；历史条目显示"时间/来源未知"；
-- **`/guard tools` 命令**：查看白名单（永久 + 本会话新增，含时间/来源会话）+ `/guard tools revoke <工具名>` 撤销（持久化+会话集同步）；
-- **工具箱覆盖门禁**：`scripts/check-tool-coverage.mjs`（官方 tool-catalog vs 分类表，任一 unknown 即红——`run_code` 事故同类的机器防线）已挂入 `verify-all` 第五层；
-- **测试**：全量单测（新增 whitelist 格式 5 用例）+ loader-smoke 新增 E 场景（白名单 v2 真实落盘断言：对象数组/时间/来源会话/审计留痕）+ verify-all **七层**全绿。
-
-## 0.5.8（2026-08-26 追加）
-
-- **白名单持久化**："允许使用 X"（未归类工具批准）落盘 `~/.dsh/rule-engine-tools.json`——此前为内存态，热重载/重启即清（用户需反复重发，实测 esr_task/esr_close 各被清一次）；
-- **只读命令词表补全**：`Select-Object / Out-String / Format-Table / Measure-Object / Sort-Object / Where-Object / Group-Object / Out-Null / ConvertTo-Json` 等常见只读 cmdlet 纳入只读判定（此前 `Get-Item | Select-Object` 被误判为变更拦截）——含"管道内含写操作仍判变更"的安全回归；
-- **`npm run verify`** 注册（= `scripts/verify-all.mjs` 七层体检别名）；
-- 工作区内低风险变更豁免（12A 正文对齐：只读诊断脚本不再被拦——0.5.7 的延续项）。
+| 版本 | 日期 | 要点 |
+|---|---|---|
+| **0.5.14** | 2026-08-28 | 注入文案去命令化（命令词守卫 + 历史文案改写）、注入投递降噪、注入授权断言真值驱动、规则 2 时序竞态（turn/end 复核）、verify-gap 词面收紧、回归集第 8 层 |
+| **0.5.13** | 2026-08-28 | 委派/子代理回合豁免（delegated-skip）、中文顿号路径提取（PATH_TOKEN_RE）、ask 节流区分"明确拒绝"与"未响应" |
+| **0.5.12** | 2026-08-28 | 意图优先级修正（动作词先于方案词）、LLM 意图兜底同步等待、@文件引用信号、只读判定三档（写特征/白名单/保守拒）、规则 22 粒度并入会话授权、ERR 码打标链路 |
+| **0.5.11** | 2026-08-28 | 判定内核第一轮：新建豁免补"新建"语义、分析通道移除脚本区语义豁免、12A 与 22-7 判据同源、后台判定模型 = 当前会话模型；词表唯一源（lexicon.js）、rule14 空转映射清理、规则 24 机器执行修正（守卫链覆盖测试） |
+| **0.5.10** | 2026-08-27 | 分析通道（单真源 isAnalysisOp：严格只读 ∪ 分析临时区写）、写类判定单真源（isMutationCommand）、只读词表补全、统一入口加固（转义检测 + 写后校验）、误判打标闭环、已知坑错误码召回 |
+| **0.5.9** | 2026-08-27 | 工具分类单真源（tool-catalog.js）、官方 59 工具全集覆盖、前缀规则（mcp__/esr_/dev_ 等命名空间自动归类）、unknownPolicy（默认 deny）、白名单 v2 带元数据、/guard tools、工具箱覆盖门禁 |
+| **0.5.8** | 2026-08-26 | 白名单持久化（rule-engine-tools.json）、只读命令词表补全（Select-Object 等）、`npm run verify` 注册 |
+| **0.5.7** | 2026-08-26 | 注入噪音治理（词表只产嫌疑 + LLM 裁决 + fail-closed + 投递资格闸 + 审计完整性）、注入通道重入修复（宏任务投递）、语义层（awaitingJudge/judge-pass/false/unavailable） |
+| **0.5.6** | 2026-08-26 | 同回复聚合注入、已自证规则不重复触发、C2 规则统计（detected/suppressed/injected） |
 
 ## 任务契约与反过度工程（可选）
 
@@ -169,6 +99,7 @@ DSH 规则执行引擎 v3 的插件实现。它把 `~/.dsh/AGENTS.md` 当作唯�
 | `/guard mode <模式>` | 设置任务契约模式（review/answer/change/monitor/watch/off） |
 | `/guard budget ...` | 设置预算（agents=N files=... deps=allow hash=allow） |
 | `/guard contract` | 查看当前任务契约 |
+| `/guard contract categories ...` | 设定契约类别白名单（build/test/install 等非破坏类；0.5.12） |
 | `/guard label <id> <label>` | 给审计记录打标（correct/incorrect/inconclusive） |
 | `/guard tools` | 查看工具放行白名单（永久+本会话，含时间/来源会话） |
 | `/guard tools revoke <名>` | 撤销白名单条目（持久化+会话集同步移除） |
@@ -243,7 +174,7 @@ dsh plugin --profile web add dsh-rule-engine
 
 5. **跨会话持久化**
    授权/备份目前为内存态，重启失效。持久化涉及写入保护、并发与恢复，风险较高，暂未实现。
-    注（0.5.7）：验证通过记录 verifyPass 已持久化（`~/.dsh/rule-engine-verify.json`，热重载/重启不丢）——规则 23④ 证据链；授权/备份仍为内存态。
+   注（0.5.7）：验证通过记录 verifyPass 已持久化（`~/.dsh/rule-engine-verify.json`，热重载/重启不丢）——规则 23④ 证据链；授权/备份仍为内存态。
 
 6. **输出文本实时拦截**
    受 DSH 官方架构限制，`assistant/message` 无法“拦下不发”，只能事后审计 + 纠正注入；这是平台边界，不是插件能单独突破的。

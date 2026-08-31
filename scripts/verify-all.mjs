@@ -119,6 +119,10 @@ if (judgeReal > 0) {
   lines.push("⚠️ 真实判例：近 24h 无 judge-pass/judge-false 记录——裁决器需要一次实弹（非阻塞 WARN，但说明运行证据尚未产生）");
 }
 
+// ── ⑧ 发布适用性门禁（T6，2026-08-31：通用化"陌生人视角"硬闸）──
+// 无 AGENTS.md 冷启动 / 空白规则静默 / 任意编号规则声明式绑定 / 格式契约冒烟 / 个人标识扫描
+step("发布适用性门禁（无 AGENTS.md 冷启动 / 空白规则 / 任意编号 / 个人标识扫描）", process.execPath, [join(root, "scripts", "publish-aptitude-check.mjs")]);
+
 console.log(lines.join("\n"));
 const failed = lines.filter((l) => l.startsWith("❌"));
 if (failed.length) {

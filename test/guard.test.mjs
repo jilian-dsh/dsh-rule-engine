@@ -12,55 +12,78 @@ import { scopesFromIntents } from "../lib/core/authorization.js";
 process.env.DSH_HOME = join(tmpdir(), "dsh-rule-engine-guard-test-no-agents");
 process.env.DSH_WORKSPACE = process.cwd();
 
-const rule9 = understandRule({
+// 本机回归测试（残余1 剥离后，2026-08-31）：夹具经 defaultMap 注入绑定执行器——
+// 模拟本机配置 handlerDefaultMap（代码层默认表已下沉配置；本测试=本机语义回归）
+const TEST_DEFAULT_MAP = {
+  "1": "rule1-retry",
+  "2": "rule2-time",
+  "5": "rule5-source",
+  "7": "rule7-promise",
+  "9": "rule9-inline-bom",
+  "11": "rule11-language",
+  "12A": "rule12a-approval",
+  "12B": "rule12b-skill",
+  "12C": "rule12c-network",
+  "13A": "rule13a-backup",
+  "18": "rule18-manual-first",
+  "21": "rule21-meta",
+  "22": "rule22-7-direct",
+  "23": "rule23-runtime-verify",
+  "24": "rule24-assembly-type",
+  "26": "rule26-release-asset",
+  "27": "rule27-mount-audit"
+};
+const testRule = (r) => understandRule(r, { defaultMap: TEST_DEFAULT_MAP });
+
+const rule9 = testRule({
   index: "9",
   title: "PS 编码与命令执行（执行等级：A+D）",
   level: "A+D",
   body: "- **触发**：任何含中文的脚本/命令。\n- **检查**：拦内联命令（node -e / pwsh -c / node -p）；拦 Set-Content -Encoding UTF8 写 .json。\n- **动作**：硬拦项拒绝。\n- **豁免**：无。"
 });
-const rule18 = understandRule({
+const rule18 = testRule({
   index: "18",
   title: "先查手册再动手（执行等级：A 弱）",
   level: "A弱",
   body: "- **触发**：任务涉及 DSH 插件。\n- **检查**：首次工具调用前未读手册。\n- **动作**：拒绝。\n- **豁免**：读取手册本身。"
 });
-const rule13 = understandRule({
+const rule13 = testRule({
   index: "13A",
   title: "备份与验证闭环（执行等级：A+D）",
   level: "A+D",
   body: "- **触发**：删除/覆盖/迁移。\n- **检查**：删除/覆盖且无备份→拒绝。\n- **动作**：拒绝。\n- **豁免**：低风险新建。"
 });
-const rule12b = understandRule({
+const rule12b = testRule({
   index: "12B",
   title: "技能调用流程（执行等级：C）",
   level: "C",
   body: "- **触发**：技能调用。\n- **检查**：四步时序：关键词→授权→调用。\n- **动作**：跳过授权直接调用→拒绝。\n- **豁免**：example-usage-manual、example-planner。"
 });
-const rule21 = understandRule({
+const rule21 = testRule({
   index: "21",
   title: "规则管理（执行等级：M）",
   level: "M",
   body: "- **触发**：规则变更。\n- **检查**：双通道变更。\n- **动作**：未经确认不落盘。\n- **豁免**：无。"
 });
-const rule1 = understandRule({
+const rule1 = testRule({
   index: "1",
   title: "异常处理（执行等级：A）",
   level: "A",
   body: "- **触发**：工具调用失败或卡住。\n- **检查**：同工具同参数连续失败≥2次。\n- **动作**：拒绝第3次重试。\n- **豁免**：用户明确要求重试。"
 });
-const rule12a = understandRule({
+const rule12a = testRule({
   index: "12A",
   title: "执行前确认（执行等级：C+D）",
   level: "C+D",
   body: "- **触发**：创建/删除/覆盖/移动/执行命令/下载/提交等。\n- **检查**：敏感操作需授权证据。\n- **动作**：无授权→拒绝。\n- **豁免**：只读、工作区低风险新建。"
 });
-const rule24 = understandRule({
+const rule24 = testRule({
   index: "24",
   title: "插件变更统一守卫（执行等级：A 硬拦）",
   level: "A",
   body: "- **触发**：新增/修改 DSH 插件装配；给 DSH 增加新的文件变更工具。\n- **检查**：只有 dsh.bundle 才能加入 bundles；所有变更类工具纳入统一守卫。\n- **动作**：拒绝未覆盖变更工具与类型不匹配装配。\n- **豁免**：官方 bundle；只读工具。"
 });
-const rule27 = understandRule({
+const rule27 = testRule({
   index: "27",
   title: "插件挂载唯一性与重启前全量审计（执行等级：C+D）",
   level: "C+D",
@@ -127,7 +150,7 @@ assert.ok(hit && hit.ruleId === "13A", "plain direct write outside still hits 13
 
 // 规则 22⑦ 机器化：疑问句 → 变更类工具被拦；同形词（"执行"在"执行方案"中）不豁免；
 // 只读/ask_user_question 放行；非疑问句+指令词（"执行吧"）放行
-const rule22 = understandRule({
+const rule22 = testRule({
   index: "22",
   title: "沟通直接性（执行等级：C+D）",
   level: "C+D",
