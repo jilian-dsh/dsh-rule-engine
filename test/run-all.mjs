@@ -56,7 +56,9 @@ const tests = [
   // v0.5.12（F5 契约类别白名单，2026-08-30）：纯函数（contract 依赖）——固定末尾
   "./contract-categories.test.mjs",
   // T2 会话寻址（2026-08-31）：自设 DSH_HOME + import index.js（同 phase1b 缓存前提）——固定末尾
-  "./session-addressing.test.mjs"
+  "./session-addressing.test.mjs",
+  // 分点级判定回归（2026-08-31，柱子 A/B/C）：用户三点消息锁定/条件句/对象锚定——纯函数，固定末尾
+  "./clause-point-regression.test.mjs"
 ];
 
 for (const t of tests) {

@@ -177,4 +177,14 @@ assert.equal(askResultApproved({ answers: [{ selected: ["只做第 1 项回合�
   assert.deepEqual([...inferTypesFromText("查看并修改")].sort(), ["analysis", "write"], "inferTypesFromText 全命中含 analysis");
 }
 
+// ── 2026-08-31：skill 词残留收紧（12B 禁用后，"Skill"名词不再触发技能类判定）──
+{
+  // VCI2RX 实证：gh repo create 描述含 "Skill" → 曾被判 skill 类误拦
+  assert.notEqual(inferTypeFromText("gh repo create dsh-rule-engine-usage --description rule-engine usage guide"), "skill", "名词 Skill 不再命中（VCI2RX 防线）");
+  // 真实技能操作仍识别（skill 工具/目录管理）
+  assert.equal(inferTypeFromText("调用 skill 查看技能目录"), "skill", "技能调用仍判 skill");
+  assert.equal(inferTypeFromText("skill enable example-usage-manual"), "skill", "skill 工具命令仍判 skill");
+  assert.equal(inferTypeFromText("禁用技能 rules-manager"), "skill", "技能禁用仍判 skill");
+}
+
 console.log("authorization.test.js PASS");
