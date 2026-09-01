@@ -273,4 +273,89 @@ assert.equal(extractAssistantText(msg), "hello");
   assert.ok(hs.some((h) => h.ruleId === "7"), "B3: 第一人称'我说保证'仍按承诺处理");
 }
 
+// ── 规则 5 扩展 / 规则 31（2026-09-01 用户拍板：先查后说/查证纪律）──
+const rule31 = understandRule({
+  index: "31",
+  title: "查证纪律（执行等级：B + D）",
+  level: "B+D",
+  body: "- **触发**：任何回合。\n- **检查**：查证目标/撞墙分析/高频查询。\n- **动作**：审计+注入；D 级自证。\n- **豁免**：只读展示。"
+});
+const cfgWith31 = state.configs.concat([rule31]);
+
+// 规则 5 扩展：内部文档引用 + 近 3 回合无查询 → 命中
+{
+  const s = getSessionState(state, "s5a");
+  s.turn.number = 10;
+  s.lastQueryTurn = -1;
+  const hs = detectViolations({ configs: cfgWith31, session: s, text: "按手册踩坑 93 的做法执行" });
+  assert.ok(hs.some((h) => h.ruleId === "5" && h.reason.includes("内部文档")), "rule5 内部引用无依据命中");
+}
+// 近 3 回合内有查询 → 不命中
+{
+  const s = getSessionState(state, "s5b");
+  s.turn.number = 10;
+  s.lastQueryTurn = 8;
+  const hs = detectViolations({ configs: cfgWith31, session: s, text: "按手册踩坑 93 的做法执行" });
+  assert.ok(!hs.some((h) => h.ruleId === "5" && h.reason.includes("内部文档")), "rule5 近3回合有查询不命中");
+}
+// 窗口外（>3 回合前）→ 命中
+{
+  const s = getSessionState(state, "s5c");
+  s.turn.number = 10;
+  s.lastQueryTurn = 6;
+  const hs = detectViolations({ configs: cfgWith31, session: s, text: "手册写了这个流程" });
+  assert.ok(hs.some((h) => h.ruleId === "5" && h.reason.includes("内部文档")), "rule5 窗口外命中");
+}
+// 已标注来源 → 不命中
+{
+  const s = getSessionState(state, "s5d");
+  s.turn.number = 10;
+  s.lastQueryTurn = -1;
+  const hs = detectViolations({ configs: cfgWith31, session: s, text: "按手册踩坑 93 执行（来源：手册踩坑 93）" });
+  assert.ok(!hs.some((h) => h.ruleId === "5" && h.reason.includes("内部文档")), "rule5 标注来源不命中");
+}
+// 无引用词 → 不命中
+{
+  const s = getSessionState(state, "s5e");
+  s.turn.number = 10;
+  s.lastQueryTurn = -1;
+  const hs = detectViolations({ configs: cfgWith31, session: s, text: "这个方案我觉得可以" });
+  assert.ok(!hs.some((h) => h.ruleId === "5" && h.reason.includes("内部文档")), "rule5 无引用词不命中");
+}
+// 规则 31：同工具 ≥3 次 + 无验证语 → 命中
+{
+  const s = getSessionState(state, "s31a");
+  s.turn.number = 5;
+  s.turn.pendingToolCalls.set("c1", { name: "grep", args: { pattern: "a" } });
+  s.turn.pendingToolCalls.set("c2", { name: "grep", args: { pattern: "b" } });
+  s.turn.pendingToolCalls.set("c3", { name: "grep", args: { pattern: "c" } });
+  const hs = detectViolations({ configs: cfgWith31, session: s, text: "继续确认", reasoningText: "" });
+  assert.ok(hs.some((h) => h.ruleId === "31"), "rule31 同工具≥3次无验证目标命中");
+}
+// 思维链有验证目标语 → 不命中
+{
+  const s = getSessionState(state, "s31b");
+  s.turn.number = 5;
+  s.turn.pendingToolCalls.set("c1", { name: "grep", args: { pattern: "a" } });
+  s.turn.pendingToolCalls.set("c2", { name: "grep", args: { pattern: "b" } });
+  s.turn.pendingToolCalls.set("c3", { name: "grep", args: { pattern: "c" } });
+  const hs = detectViolations({ configs: cfgWith31, session: s, text: "继续确认", reasoningText: "验证目标：确认 X 与 Y 的对应关系，交叉核对两处源码" });
+  assert.ok(!hs.some((h) => h.ruleId === "31"), "rule31 思维链有验证目标不命中");
+}
+// 仅 2 次 → 不命中
+{
+  const s = getSessionState(state, "s31c");
+  s.turn.number = 5;
+  s.turn.pendingToolCalls.set("c1", { name: "grep", args: { pattern: "a" } });
+  s.turn.pendingToolCalls.set("c2", { name: "grep", args: { pattern: "b" } });
+  const hs = detectViolations({ configs: cfgWith31, session: s, text: "继续确认", reasoningText: "" });
+  assert.ok(!hs.some((h) => h.ruleId === "31"), "rule31 2次不命中");
+}
+// rule31 D 级 hint：撞墙词 → self-certify
+{
+  const s = getSessionState(state, "s31d");
+  const hs = detectViolations({ configs: cfgWith31, session: s, text: "撞了南墙，我换个方式" });
+  assert.ok(hs.some((h) => h.ruleId === "31" && h.kind === "self-certify"), "rule31 D级 hint 命中");
+}
+
 console.log("text-detect.test.js PASS");
