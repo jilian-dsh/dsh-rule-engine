@@ -5,3 +5,5 @@
       name: 'dsh-rule-engine'
     - id: dsh-rule-engine-service
       name: 'dsh-rule-engine/lib/service.js'
+    - id: dsh-rule-engine-client
+      name: 'dsh-rule-engine-client'
