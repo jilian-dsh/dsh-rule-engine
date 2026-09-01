@@ -58,7 +58,9 @@ const tests = [
   // T2 会话寻址（2026-08-31）：自设 DSH_HOME + import index.js（同 phase1b 缓存前提）——固定末尾
   "./session-addressing.test.mjs",
   // 分点级判定回归（2026-08-31，柱子 A/B/C）：用户三点消息锁定/条件句/对象锚定——纯函数，固定末尾
-  "./clause-point-regression.test.mjs"
+  "./clause-point-regression.test.mjs",
+  // 回合末裁决摘要（0.5.15，turn-card）：纯函数，固定末尾
+  "./turn-card.test.mjs"
 ];
 
 for (const t of tests) {
