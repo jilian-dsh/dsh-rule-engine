@@ -6,9 +6,10 @@
 //   - --sync-profile：发布成功后自动更新 profiles/<profile>/pnpm-workspace.yaml 豁免名单
 //     （备份原文件）+ 运行全量装配审计（写 .dsh 需以 danger-full-access 运行本脚本）
 // 前置：npm 已认证、gh 已认证、git 已配置。
-// 网络：默认直连（2026-08-27 实测 npm registry / github.com / api.github.com 直连可用，无需代理；
-//       代理挂掉时不再 ECONNREFUSED）。需要代理的环境设 DSH_RELEASE_PROXY=http://127.0.0.1:7890。
-// 步骤：版本 bump -> 测试 -> npm pack -> npm publish -> git commit+push -> gh release（带 tgz asset）
+// 网络：2026-09-03 实测修正——直连 github.com/npm registry 已不可靠（443 超时/连接重置）；
+//       需代理环境请设 DSH_RELEASE_PROXY=http://127.0.0.1:7890（本机 Clash 7890）。未设时脚本仍尝试直连。
+// 步骤：版本 bump -> 测试 -> npm pack -> npm publish -> [publish 后 dist-tags 校验（B1，2026-09-03）]
+//       -> git commit+push -> gh release（带 tgz asset）
 // 安全：token 经环境变量注入，不在命令文本/日志中打印
 import { execSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync, mkdirSync, copyFileSync, statSync } from "node:fs";
@@ -176,6 +177,26 @@ for (const readme of ["README.md", "README.en.md"]) {
 }
 console.log("版本已 bump（package.json + README 徽章）");
 
+// B1（2026-09-03）：README 版本表行自动插入（阶段 C 人脑核对已失效的自动化；幂等：已存在 nextVer 行则跳过）
+// 位置：版本表（| 版本 | 日期 | 要点 |）表头后第一数据行之前（最新在上）；内容用调用方 notes 参数或 git log 最近提交信息
+const notes = process.argv.includes("--notes") ? process.argv[process.argv.indexOf("--notes") + 1] : "";
+for (const readme of ["README.md"]) {
+  const rd = join(dir, readme);
+  if (!existsSync(rd)) continue;
+  let rtxt = readFileSync(rd, "utf8");
+  const tableHeader = "| 版本 | 日期 | 要点 |";
+  const hi = rtxt.indexOf(tableHeader);
+  if (hi < 0 || rtxt.includes(`| **${nextVer}** |`)) continue;
+  const today = new Date().toLocaleDateString("en-CA"); // 本地时区 YYYY-MM-DD
+  const summary = notes || (quiet(`cd /d "${dir}" && git log -1 --pretty=%s`).slice(0, 90) || "（待补变更摘要）");
+  const nl = rtxt.indexOf("\n", hi);
+  if (nl < 0) continue;
+  const row = `| **${nextVer}** | ${today} | ${summary.replace(/\|/g, "\\|")} |`;
+  rtxt = rtxt.slice(0, nl + 1) + row + "\n" + rtxt.slice(nl + 1);
+  writeFileSync(rd, rtxt, "utf8");
+  console.log(`[B1] ${readme} 版本表已插入 ${nextVer} 行（摘要来源：${notes ? "notes 参数" : "git log"}）；请核对内容`);
+}
+
 // ── 3. 测试（规则 23：发布前运行时验证）─────────────────────────
 if (pkg.scripts && pkg.scripts.test) {
   console.log("\n=== 运行测试 ===");
@@ -192,6 +213,15 @@ if (!existsSync(join(dir, tgz))) fail(`打包产物缺失：${tgz}`);
 
 console.log("\n=== npm publish ===");
 run(`cd /d "${dir}" && ${proxyPrefix()}npm publish ${tgz}`);
+
+// B1（2026-09-03）：publish 后校验 registry dist-tags（0.5.16 事故：publish 自报成功但 latest 未切；
+// 脚本此前只跑 publish 不校验发布态——三通道验证铁律：npm 通道以 dist-tags 为准，self-report 不算数）
+console.log("\n=== npm 发布态校验（dist-tags）===");
+const latestActual = quiet(`cd /d "${dir}" && ${proxyPrefix()}npm view ${name} dist-tags.latest`);
+if (latestActual !== nextVer) {
+  fail(`npm 发布态异常：dist-tags.latest=${latestActual || "(为空)"}，预期 ${nextVer}——请人工核查（可能 staged/缓存，见踩坑 117）；勿继续 git/Release 通道`);
+}
+console.log(`dist-tags.latest=${latestActual} ✓`);
 
 // ── 5. git commit + push（token 经环境变量注入 URL，命令文本不含密钥明文）─────
 console.log("\n=== git commit + push ===");
