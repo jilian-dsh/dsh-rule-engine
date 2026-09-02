@@ -358,4 +358,18 @@ const cfgWith31 = state.configs.concat([rule31]);
   assert.ok(hs.some((h) => h.ruleId === "31" && h.kind === "self-certify"), "rule31 D级 hint 命中");
 }
 
+// rule22 批评形态（用户消息）→ correct 命中；正常疑问不命中
+{
+  const s = getSessionState(state, "s22a");
+  s.lastUserText = "你聋了吗？你疯了？？？？？？";
+  const hs = detectViolations({ configs: [{ ...rule22, confidence: "high" }], session: s, text: "好的", reasoningText: "" });
+  assert.ok(hs.some((h) => h.ruleId === "22" && h.kind === "correct"), "rule22 批评形态命中");
+}
+{
+  const s = getSessionState(state, "s22b");
+  s.lastUserText = "你确认已落盘了吗？请回答";
+  const hs = detectViolations({ configs: [{ ...rule22, confidence: "high" }], session: s, text: "好的", reasoningText: "" });
+  assert.ok(!hs.some((h) => h.ruleId === "22"), "rule22 正常疑问不命中");
+}
+
 console.log("text-detect.test.js PASS");
