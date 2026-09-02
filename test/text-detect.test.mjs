@@ -371,5 +371,29 @@ const cfgWith31 = state.configs.concat([rule31]);
   const hs = detectViolations({ configs: [{ ...rule22, confidence: "high" }], session: s, text: "好的", reasoningText: "" });
   assert.ok(!hs.some((h) => h.ruleId === "22"), "rule22 正常疑问不命中");
 }
+// rule22 弱点反问形态（"你怎么还在做！"式）→ 只产嫌疑（self-certify + mode=criticism，交 judge 裁决）
+{
+  const s = getSessionState(state, "s22c");
+  s.lastUserText = "你怎么还在做！";
+  const hs = detectViolations({ configs: [{ ...rule22, confidence: "high" }], session: s, text: "好的", reasoningText: "" });
+  const hit = hs.find((h) => h.ruleId === "22");
+  assert.ok(hit, "rule22 反问指责形态命中");
+  assert.equal(hit.kind, "self-certify", "弱形态=嫌疑（不直接投递）");
+  assert.equal(hit.mode, "criticism", "嫌疑带 criticism 模式（judge 专用 prompt）");
+}
+{
+  const s = getSessionState(state, "s22d");
+  s.lastUserText = "你又错了";
+  const hs = detectViolations({ configs: [{ ...rule22, confidence: "high" }], session: s, text: "好的", reasoningText: "" });
+  const hit = hs.find((h) => h.ruleId === "22");
+  assert.ok(hit && hit.kind === "self-certify", "rule22 又错了=弱嫌疑");
+}
+// rule22 普通技术疑问（"怎么用"式）→ 进入嫌疑（由 judge 判定为 false=不打扰）——设计即"宽嫌疑、模型定论"
+{
+  const s = getSessionState(state, "s22e");
+  s.lastUserText = "这个功能怎么用？";
+  const hs = detectViolations({ configs: [{ ...rule22, confidence: "high" }], session: s, text: "好的", reasoningText: "" });
+  assert.ok(hs.some((h) => h.ruleId === "22" && h.kind === "self-certify"), "rule22 普通技术疑问=嫌疑（judge 裁决不打扰）");
+}
 
 console.log("text-detect.test.js PASS");
