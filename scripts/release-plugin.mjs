@@ -109,8 +109,10 @@ checkDependencyPair();
 
 // ── 1. 前置检查 ──────────────────────────────────────────────────
 if (!/^\d+\.\d+\.\d+$/.test(nextVer)) fail(`版本号格式错误：${nextVer}`);
-if (!quiet("gh auth status").includes("Logged in")) fail("gh 未认证");
-const whoami = quiet("npm whoami");
+// 2026-09-02 修复：gh auth status 的 "Logged in" 输出在 stderr（新版 gh），stdout 可能为空空
+// → 2>&1 合并 stderr，避免已认证被误判"gh 未认证"（实测 jilian-dsh keyring 已登录却判失败）
+if (!quiet("gh auth status 2>&1").includes("Logged in")) fail("gh 未认证");
+const whoami = quiet("npm whoami 2>&1");
 if (!whoami) fail("npm 未认证（npm whoami 失败）");
 
 // ── 1.5 DSH 兼容预检（发布前防“升级后插件不兼容”）──────────────
