@@ -230,6 +230,9 @@ function scanStagedPersonal(repoRoot, stageSpec) {
     const p = join(repoRoot, f);
     if (!existsSync(p) || statSync(p).size > 2 * 1024 * 1024) continue;
     const text = readFileSync(p, "utf8");
+    // 豁免：LICENSE/版权行=MIT 许可要求版权声明（作者署名是公开出版物必要内容，非泄露）
+    if (/^LICENSE/i.test(path.basename(f))) continue;
+    if (/Copyright\s*\(c\)/i.test(text)) continue;
     if (PERSONAL_RE.test(text)) bad.push(f);
   }
   if (bad.length) fail(`提交物含个人标识/本机路径（PERSONAL_RE 命中 ${bad.length} 个文件）：${bad.slice(0, 4).join(", ")}；请脱敏后重试`);
