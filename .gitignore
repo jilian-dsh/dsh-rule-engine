@@ -1,6 +1,9 @@
 node_modules/
 *.tgz
 *.log
+# 分析临时区与 codegraph 索引（不入库）
+logs/
+.codegraph/
 .DS_Store
 .backups/
 test/*.bak
