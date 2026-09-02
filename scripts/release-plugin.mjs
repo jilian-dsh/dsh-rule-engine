@@ -11,7 +11,7 @@
 // 步骤：版本 bump -> 测试 -> npm pack -> npm publish -> git commit+push -> gh release（带 tgz asset）
 // 安全：token 经环境变量注入，不在命令文本/日志中打印
 import { execSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync, mkdirSync, copyFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync, copyFileSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -219,7 +219,24 @@ const untrackedList = quiet(`cd /d "${repoRoot}" && git status --porcelain -- ${
 if (untrackedList.length > 0) {
   console.log(`（未跟踪文件 ${untrackedList.length} 个将一并提交：${untrackedList.slice(0, 6).join(", ")}${untrackedList.length > 6 ? " 等" : ""}）`);
 }
-run(`cd /d "${repoRoot}" && ${proxyPrefix()}git add -A -- ${stageSpec} && git -c core.autocrlf=false commit -m "release: ${name} v${nextVer}" || exit 0`);
+// 2026-09-02：提交物个人标识/本机路径扫描（git 提交侧门禁；与 publish-aptitude-check.mjs PERSONAL_RE 同源）
+// 教训 8105d3e：logs/.analysis-tmp 手册草稿曾随 add -A 进入公开库——npm 侧有门禁，git 侧此前没有。
+const PERSONAL_RE = /jilian|季涟|D:\\example|D:\/example|@qq\.com|@163\.com|@outlook\.com|私人注释|个人标识/;
+function scanStagedPersonal(repoRoot, stageSpec) {
+  const files = quiet(`cd /d "${repoRoot}" && git diff --cached --name-only -- ${stageSpec || "."}`)
+    .split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+  const bad = [];
+  for (const f of files) {
+    const p = join(repoRoot, f);
+    if (!existsSync(p) || statSync(p).size > 2 * 1024 * 1024) continue;
+    const text = readFileSync(p, "utf8");
+    if (PERSONAL_RE.test(text)) bad.push(f);
+  }
+  if (bad.length) fail(`提交物含个人标识/本机路径（PERSONAL_RE 命中 ${bad.length} 个文件）：${bad.slice(0, 4).join(", ")}；请脱敏后重试`);
+}
+run(`cd /d "${repoRoot}" && ${proxyPrefix()}git add -A -- ${stageSpec}`);
+scanStagedPersonal(repoRoot, stageSpec);
+run(`cd /d "${repoRoot}" && git -c core.autocrlf=false commit -m "release: ${name} v${nextVer}" || exit 0`);
 run(`cd /d "${repoRoot}" && ${proxyPrefix()}git push "${pushUrl}" HEAD`);
 
 // ── 6. GitHub Release（带正式 tgz asset，规则 26；清单标记 skipRelease 的包不建）─────
