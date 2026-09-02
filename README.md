@@ -78,6 +78,10 @@ DSH 规则执行引擎 v3 的插件实现。它把 `~/.dsh/AGENTS.md` 当作唯�
 | **0.5.7** | 2026-08-26 | 注入噪音治理（词表只产嫌疑 + LLM 裁决 + fail-closed + 投递资格闸 + 审计完整性）、注入通道重入修复（宏任务投递）、语义层（awaitingJudge/judge-pass/false/unavailable） |
 | **0.5.6** | 2026-08-26 | 同回复聚合注入、已自证规则不重复触发、C2 规则统计（detected/suppressed/injected） |
 
+## 发行固定源
+
+- **0.5.16（当前）** 固定于 main Commit `4d6673a5d8e4ed329e2b923d294a3743c643deb5`（40 位完整；`git checkout 4d6673a` 可复现 npm `dsh-rule-engine@0.5.16` 与 GitHub Release v0.5.16 同源代码——0.5.16 发布后 `96a3318`/`4d6673a` 为发布收尾提交：README 版本表与 B1/B2 修复，均属 0.5.16 源码）。
+
 ## 任务契约与反过度工程（可选）
 
 - 默认**关闭**；可在规则引擎设置页开启「任务边界与反过度工程」总开关。
