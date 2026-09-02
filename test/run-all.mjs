@@ -60,7 +60,12 @@ const tests = [
   // 分点级判定回归（2026-08-31，柱子 A/B/C）：用户三点消息锁定/条件句/对象锚定——纯函数，固定末尾
   "./clause-point-regression.test.mjs",
   // 回合末裁决摘要（0.5.15，turn-card）：纯函数，固定末尾
-  "./turn-card.test.mjs"
+  "./turn-card.test.mjs",
+  // Remote 签名一致性（2026-09-02）：client TYPERT_REMOTE 描述符参数 == host 方法签名参数
+  // （rateTurnCard 加 blockIndex 漏改 client 致 expected 3 got 4 / [object Object]——两端同步锁定）
+  "./remote-signature-consistency.test.mjs",
+  // 判例登记链路（0.5.15，block 级/一次性/持久化）
+  "./turn-card-verdict.test.mjs"
 ];
 
 for (const t of tests) {
