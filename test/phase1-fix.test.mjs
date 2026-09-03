@@ -138,7 +138,7 @@ try {
 {
   // 12D 已记录授权（TTL 内）→ 下一回合同路径操作应放行（原：22 粒度只认本回合 → 拦）
   // 验证 authMatches 本身：授权 write d:/1、示例/练习/... 覆盖同路径写操作
-  const auth = { type: "write", pathPrefix: "d:/1、示例/练习" };
+  const auth = { type: "write", pathPrefix: "d:/1、示例/练习/案例1-示例案件" };
   const op = { type: "write", pathPrefix: "d:/1、示例/练习/案例1-示例案件/业务通告/业务通告.doc" };
   assert.equal(authMatches(auth, op), true, "C1: 目录级授权覆盖子路径");
   // NOTE：中文顿号路径是否被 PATH_TOKEN_RE 完整提取属 C2（阶段二：路径提取修复）——
@@ -200,11 +200,11 @@ try {
     }
   ]);
   // 场景回放：本回合用户消息"帮我写入 D:\1、示例\a.txt"（execute 子句，但 scopes 因截断只到 d:/1）
-  // 12D 上回合已记录 write｜路径 d:/1、示例/练习（TTL 内）→ 带顿号路径的操作应被该授权覆盖
+  // 12D 上回合已记录 write｜路径 d:/1、示例/练习/案例1-示例案件（TTL 内）→ 带顿号路径的操作应被该授权覆盖
   const s2 = {
     id: "c1-test",
     authorizations: [
-      { type: "write", pathPrefix: "d:/1、示例/练习", at: Date.now() - 1000, expiresAt: Date.now() + 600000, source: "user-message" }
+      { type: "write", pathPrefix: "d:/1、示例/练习/案例1-示例案件", at: Date.now() - 1000, expiresAt: Date.now() + 600000, source: "user-message" }
     ],
     backups: [],
     turn: {
@@ -282,10 +282,10 @@ try {
 // ═══ C2：中文顿号路径提取（PATH_TOKEN_RE 不再截断 `、`）═══
 
 {
-  // 事故原文：D:\1、示例\练习\...（无引号裸路径）
+  // 事故原文：D:\1、示例\练习\案例1-示例案件\...（无引号裸路径）
   const paths = inferPathPrefixesFromText("读取 D:\\1、示例\\练习\\案例1-示例案件\\业务通告\\业务通告.doc 的内容");
   assert.equal(
-    paths.some((p) => p.startsWith("d:/1、示例/练习/")),
+    paths.some((p) => p.startsWith("d:/1、示例/练习/案例1-示例案件/")),
     true,
     `C2: 顿号路径完整提取（实际输出：${JSON.stringify(paths)}）`
   );
@@ -293,7 +293,7 @@ try {
   const paths2 = inferPathPrefixesFromText('@"D:\\1、示例\\练习\\案例1-示例案件\\业务通告\\业务通告.doc"');
   assert.equal(paths2.some((p) => p.includes("业务通告.doc")), true, "C2: 引号路径完整");
   // 授权匹配闭环：提取出的完整路径作为授权，能覆盖同路径操作
-  const auth = { type: "write", pathPrefix: "d:/1、示例/练习" };
+  const auth = { type: "write", pathPrefix: "d:/1、示例/练习/案例1-示例案件" };
   const op = { type: "write", pathPrefix: "d:/1、示例/练习/案例1-示例案件/业务通告/业务通告.doc" };
   assert.equal(authMatches(auth, op), true, "C2: 顿号目录授权覆盖子路径操作（ERR-LU50QQ 场景闭环）");
 }

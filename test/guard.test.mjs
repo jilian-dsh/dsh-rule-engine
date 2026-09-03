@@ -133,7 +133,7 @@ hit = guardDecision(state, { name: "pwsh", arguments: { command: "Set-Content -P
 assert.equal(hit, null, "utf8NoBOM allowed");
 
 // 规则 9（PS7 语义）：含中文 .ps1 无需 BOM——写文件与命令均放行（2026-08-19 移除 PS5.1 残留硬拦）
-hit = guardDecision(state, { name: "write", arguments: { file_path: "D:/example workspace/dsh-project/projects/oss/dsh-rule-engine/test/中文.ps1", content: "Write-Output '中文'" } });
+hit = guardDecision(state, { name: "write", arguments: { file_path: join(process.cwd(), "test", "中文.ps1"), content: "Write-Output '中文'" } });
 assert.equal(hit, null, "allow Chinese ps1 write under PS7");
 hit = guardDecision(state, { name: "pwsh", arguments: { command: "Set-Content -Path x.ps1 -Value '中文'" } });
 assert.equal(hit, null, "allow Chinese ps1 command without BOM under PS7");
@@ -290,7 +290,7 @@ assert.ok(hit && hit.ruleId === "13A", "backup of different path does not allow 
 
 // P0-1d：Copy-Item 源路径长于目标路径 + -Force + 目标不存在 → 应放行（创建新文件，不要求备份）
 // 注：带 -Force 的 copy 属敏感操作（12D 需授权），先授权再断言 13A 行为；目标路径放在测试工作区（cwd）内
-const longSrcCmd = "Copy-Item 'D:/example/apps/comfy-desktop/ComfyUI-Installs/ComfyUI/ComfyUI/.venv/Lib/site-packages/comfyui_workflow_templates_json/templates/video_minimax_h3_t2v.json' 'D:/example workspace/dsh-project/projects/oss/dsh-rule-engine/video_minimax_h3_t2v_local_new.json' -Force";
+const longSrcCmd = `Copy-Item 'D:/example/apps/comfy-desktop/ComfyUI-Installs/ComfyUI/ComfyUI/.venv/Lib/site-packages/comfyui_workflow_templates_json/templates/video_minimax_h3_t2v.json' '${join(process.cwd(), "video_minimax_h3_t2v_local_new.json")}' -Force`;
 const stateCopyNew = makeState();
 markAskSeen(stateCopyNew, "global");
 hit = guardDecision(stateCopyNew, { name: "pwsh", arguments: { command: longSrcCmd } });
@@ -298,17 +298,23 @@ assert.equal(hit, null, "copy to non-existing short target allowed even with lon
 
 // P0-1d：目标为高风险运行入口文件（授权也不豁免 13A 备份检查）且无备份 → 拦，
 // 且提示目标应为 Destination（不是源路径）
-const highRiskTarget = "D:/example workspace/dsh-desktop/main.js";
+// 注：高风险入口判定不依赖文件存在，但"覆盖已存在文件"语义需要目标真实存在——
+// 动态构造 tmpdir 下的 dsh-desktop/main.js（isHighRiskEntryFile 正则命中），避免示例路径
+// 因 existsSync=false 被当作"创建新文件"短路放行（2026-09-04 P1a 修复）
+const highRiskDir = mkdtempSync(join(tmpdir(), "dsh-rule-engine-highrisk-"));
+mkdirSync(join(highRiskDir, "dsh-desktop"), { recursive: true });
+const highRiskTarget = join(highRiskDir, "dsh-desktop", "main.js");
+writeFileSync(highRiskTarget, "// placeholder", "utf8");
 const stateCopyExist = makeState();
 markAskSeen(stateCopyExist, "global");
 hit = guardDecision(stateCopyExist, { name: "pwsh", arguments: { command: `Copy-Item 'D:/example/apps/comfy-desktop/ComfyUI-Installs/ComfyUI/ComfyUI/.venv/Lib/site-packages/comfyui_workflow_templates_json/templates/video_minimax_h3_t2v.json' '${highRiskTarget}' -Force` } });
 assert.ok(hit && hit.ruleId === "13A", "copy over existing high-risk entry without backup denied");
-assert.ok(hit.reason.includes(highRiskTarget.toLowerCase()), "deny reason targets Destination, not source");
+assert.ok(hit.reason.toLowerCase().includes(highRiskTarget.toLowerCase().replace(/\\/g, "/")), "deny reason targets Destination, not source");
 assert.ok(!hit.reason.includes("comfyui_workflow_templates_json"), "source path NOT shown as target");
 
 // P0-1d 回归：Copy-Item 不带 -Force 到不存在目标 → 放行（不进 13A；目标在测试工作区内，路径名不含 -force 子串）
 const stateCopyNoForce = makeState();
-hit = guardDecision(stateCopyNoForce, { name: "pwsh", arguments: { command: "Copy-Item 'D:/a.txt' 'D:/example workspace/dsh-project/projects/oss/dsh-rule-engine/new-file-copy.json'" } });
+hit = guardDecision(stateCopyNoForce, { name: "pwsh", arguments: { command: `Copy-Item 'D:/a.txt' '${join(process.cwd(), "new-file-copy.json")}'` } });
 assert.equal(hit, null, "copy without -Force to non-existing target allowed");
 
 // 备份记录存在但备份文件不存在 → 仍拦
@@ -381,7 +387,7 @@ assert.equal(hit, null, "allow config write with unlock");
 
 // 规则 1：重试拦截（基于真实失败计数；失败次数由 tool/result 更新）
 const state3 = makeState();
-const exec = { name: "edit", arguments: { file_path: "D:/example workspace/dsh-project/projects/oss/dsh-rule-engine/test/x.txt", old_string: "a", new_string: "b" } };
+const exec = { name: "edit", arguments: { file_path: join(process.cwd(), "test", "x.txt"), old_string: "a", new_string: "b" } };
 const retryKey = `edit:${JSON.stringify(exec.arguments)}`;
 assert.equal(guardDecision(state3, exec), null, "retry 1 allowed (no failures yet)");
 state3.retryCounts.set(retryKey, 2);
@@ -514,10 +520,17 @@ hit = guardDecision(stateManual, { name: "edit", arguments: { file_path: "D:/exa
 assert.ok(hit && hit.ruleId === "12A", "non-manual outside workspace still denied");
 
 // 写前版本校验：SKILL.md 无包含关系的编辑 → __version-guard 拦截（写前而非写后回滚）
+// 注：版本守卫先 readFileSync 原文件做模拟校验，目标必须是"真实存在的版本化文件"——
+// tmpdir 动态构造 example-usage-manual/SKILL.md（isVersionedFile 按 basename 判定，不依赖路径前缀；
+// 清理替换把同形示例路径换成不存在路径会静默吞掉 ENOENT 导致守卫失效，2026-09-04 P1a 修复）
+const vgDir = mkdtempSync(join(tmpdir(), "dsh-rule-engine-vg-"));
+mkdirSync(join(vgDir, "example-usage-manual"), { recursive: true });
+const vgPath = join(vgDir, "example-usage-manual", "SKILL.md");
+writeFileSync(vgPath, "lineA\nlineB", "utf8");
 const stateVG = makeState();
 getSessionState(stateVG, "global").manualReadSeen = true;
 getSessionState(stateVG, "global").turn.toolCount = 1;
-hit = guardDecision(stateVG, { name: "edit", arguments: { file_path: "D:/example workspace/.dsh/skills/example-usage-manual/SKILL.md", old_string: "a", new_string: "b" } });
+hit = guardDecision(stateVG, { name: "edit", arguments: { file_path: vgPath, old_string: "lineA\nlineB", new_string: "lineX\nlineY" } });
 assert.ok(hit && hit.ruleId === "__version-guard", "pre-write version guard blocks non-containment edit");
 
 // 规则 24：link 依赖可推断 bundle 类型

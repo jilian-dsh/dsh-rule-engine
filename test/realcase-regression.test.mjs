@@ -55,7 +55,7 @@ try {
   Write-Output "ERR: $($_.Exception.Message)" }`;
   assert.equal(isReadOnlyCommand(cmd), true, "① doc 读取 COM 命令 = 只读（B1）");
   // 授权匹配：顿号目录授权覆盖子路径（C2）
-  const auth = { type: "write", pathPrefix: "d:/1、示例/练习" };
+  const auth = { type: "write", pathPrefix: "d:/1、示例/练习/案例1-示例案件" };
   const op = { type: "write", pathPrefix: "d:/1、示例/练习/案例1-示例案件/业务通告/业务通告.doc" };
   assert.equal(authMatches(auth, op), true, "① 顿号目录授权覆盖（C2）");
 }
