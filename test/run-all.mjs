@@ -65,7 +65,9 @@ const tests = [
   // （rateTurnCard 加 blockIndex 漏改 client 致 expected 3 got 4 / [object Object]——两端同步锁定）
   "./remote-signature-consistency.test.mjs",
   // 判例登记链路（0.5.15，block 级/一次性/持久化）
-  "./turn-card-verdict.test.mjs"
+  "./turn-card-verdict.test.mjs",
+  // C4（2026-09-03）：物理确认类型/配置化 setTypeHints——纯函数，固定末尾
+  "./approve.test.mjs"
 ];
 
 for (const t of tests) {

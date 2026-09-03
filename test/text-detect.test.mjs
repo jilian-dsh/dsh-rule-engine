@@ -316,13 +316,29 @@ const cfgWith31 = state.configs.concat([rule31]);
   const hs = detectViolations({ configs: cfgWith31, session: s, text: "按手册踩坑 93 的做法执行" });
   assert.ok(!hs.some((h) => h.ruleId === "5" && h.reason.includes("内部文档")), "rule5 近3回合有查询不命中");
 }
-// 窗口外（>3 回合前）→ 命中
+// 窗口外（>rule5Window 回合前；2026-09-03 配置化：显式 window=5 时差 6 → 命中）
 {
   const s = getSessionState(state, "s5c");
   s.turn.number = 10;
-  s.lastQueryTurn = 6;
+  s.lastQueryTurn = 4;
+  const hs = detectViolations({ configs: cfgWith31, session: s, text: "手册写了这个流程", rule5Window: 5 });
+  assert.ok(hs.some((h) => h.ruleId === "5" && h.reason.includes("内部文档")), "rule5 window=5 差6回合命中");
+}
+// 差 5 回合内（含边界 5）→ 不命中（window=5 边界用例）
+{
+  const s = getSessionState(state, "s5e");
+  s.turn.number = 10;
+  s.lastQueryTurn = 5;
+  const hs = detectViolations({ configs: cfgWith31, session: s, text: "按手册踩坑 93 的做法执行", rule5Window: 5 });
+  assert.ok(!hs.some((h) => h.ruleId === "5" && h.reason.includes("内部文档")), "rule5 window=5 差5回合不命中");
+}
+// 默认 window=3（通用默认不变）：差 6 → 命中（回归锁定通用默认）
+{
+  const s = getSessionState(state, "s5f");
+  s.turn.number = 10;
+  s.lastQueryTurn = 4;
   const hs = detectViolations({ configs: cfgWith31, session: s, text: "手册写了这个流程" });
-  assert.ok(hs.some((h) => h.ruleId === "5" && h.reason.includes("内部文档")), "rule5 窗口外命中");
+  assert.ok(hs.some((h) => h.ruleId === "5" && h.reason.includes("内部文档")), "rule5 默认 window=3 差6回合命中");
 }
 // 已标注来源 → 不命中
 {
