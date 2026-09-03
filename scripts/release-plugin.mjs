@@ -216,10 +216,21 @@ run(`cd /d "${dir}" && ${proxyPrefix()}npm publish ${tgz}`);
 
 // B1（2026-09-03）：publish 后校验 registry dist-tags（0.5.16 事故：publish 自报成功但 latest 未切；
 // 脚本此前只跑 publish 不校验发布态——三通道验证铁律：npm 通道以 dist-tags 为准，self-report 不算数）
-console.log("\n=== npm 发布态校验（dist-tags）===");
-const latestActual = quiet(`cd /d "${dir}" && ${proxyPrefix()}npm view ${name} dist-tags.latest`);
+// B1 v2（2026-09-03 同日晚）：registry 传播以分钟计，publish 后立即校验曾误报中止（0.5.17 实弹）→
+// 轮询重试 60s（6×10s）；仍不符才中止，并按"版本是否已落盘"给出人工修正路径
+console.log("\n=== npm 发布态校验（dist-tags，轮询最多 60s）===");
+function sleepMs(ms) { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); }
+const queryTags = () => quiet(`cd /d "${dir}" && ${proxyPrefix()}npm view ${name} dist-tags.latest`);
+const queryVer = () => quiet(`cd /d "${dir}" && ${proxyPrefix()}npm view ${name}@${nextVer} version`);
+let latestActual = "";
+for (let i = 0; i < 6; i++) {
+  latestActual = queryTags();
+  if (latestActual === nextVer) break;
+  if (i < 5) { console.log(`  [B1] 等待 registry 传播（${i + 1}/5，latest=${latestActual || "(空)"}）…`); sleepMs(10000); }
+}
 if (latestActual !== nextVer) {
-  fail(`npm 发布态异常：dist-tags.latest=${latestActual || "(为空)"}，预期 ${nextVer}——请人工核查（可能 staged/缓存，见踩坑 117）；勿继续 git/Release 通道`);
+  const verExists = queryVer() === nextVer;
+  fail(`npm 发布态异常：dist-tags.latest=${latestActual || "(为空)"}，预期 ${nextVer}——${verExists ? `版本已存在但 latest 未跟：可执行 npm dist-tag add ${name}@${nextVer} latest 修正` : "版本未查询到：可能 staged/缓存（见踩坑 117）"}；人工核查前勿继续 git/Release 通道`);
 }
 console.log(`dist-tags.latest=${latestActual} ✓`);
 
