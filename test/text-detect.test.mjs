@@ -112,6 +112,24 @@ assert.ok(!hits.some((h) => h.ruleId === "2"), "no time violation after Get-Date
   assert.ok(!detectViolations({ configs: state.configs, session, text: "8 月 27 日晚上统计出 13 条（日志 ts=2026-08-27T15:21:05Z）" }).some((h) => h.ruleId === "2"), "带日志 ts 证据标注 → 合规");
 }
 
+// ── A1（2026-09-03）：时间词拆组——历史日期不要求 Get-Date 只要求证据锚；当下词仍要求 Get-Date ──
+{
+  session.turn.getDateSeen = false;
+  // 历史日期 + 无 Get-Date + 证据标注 → 合规（A1：不再误报"未先核对"）
+  assert.ok(!detectViolations({ configs: state.configs, session, text: "商店复检完成于 2026-09-03 03:25（来源：issue 更新 19:25Z）" }).some((h) => h.ruleId === "2"), "A1: 历史日期+来源标注 → 合规（不要求 Get-Date）");
+  // 历史日期 + commit 锚 → 合规
+  assert.ok(!detectViolations({ configs: state.configs, session, text: "推送完成于 2026年9月3日（commit 99db4ec）" }).some((h) => h.ruleId === "2"), "A1: 历史日期+commit 锚 → 合规");
+  // 历史日期 + 无锚 → 违规（②）
+  assert.ok(detectViolations({ configs: state.configs, session, text: "复检在 2026-09-03 03:25" }).some((h) => h.ruleId === "2"), "A1: 历史日期无证据锚 → 违规（规则 2②）");
+  // 当下词 + 无 Get-Date → 违规（①，拆组后仍命中）
+  assert.ok(detectViolations({ configs: state.configs, session, text: "刚才收到复检" }).some((h) => h.ruleId === "2"), "A1: 当下词无 Get-Date → 仍违规（①）");
+  // 历史日期转述豁免（B3 语义覆盖到历史日期组）
+  assert.ok(!detectViolations({ configs: state.configs, session, text: "你说 2026-09-03 复检过" }).some((h) => h.ruleId === "2"), "A1: 历史日期转述不触发");
+  session.turn.getDateSeen = true;
+  // 历史日期 + 版本行锚 → 合规
+  assert.ok(!detectViolations({ configs: state.configs, session, text: "手册 v4.147 落盘（2026-09-03）" }).some((h) => h.ruleId === "2"), "A1: 历史日期+版本行锚 → 合规");
+}
+
 // 承诺词
 hits = detectViolations({ configs: state.configs, session, text: "包在我身上，肯定能修好" });
 assert.ok(hits.some((h) => h.ruleId === "7"), "promise violation");

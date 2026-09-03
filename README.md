@@ -1,7 +1,7 @@
 # dsh-rule-engine
 
 ![npm](https://img.shields.io/npm/v/dsh-rule-engine)
-![version](https://img.shields.io/badge/version-0.5.16-blue)
+![version](https://img.shields.io/badge/version-0.5.17-blue)
 
 DSH 规则执行引擎 v3 的插件实现。它把 `~/.dsh/AGENTS.md` 当作唯一真相源，自动解析规则四要素与执行等级，再通过「工具守卫 + 文本检测 + 时序检查 + 审计台账」执行用户规则，而不是内置一套与用户无关的安全清单。
 
@@ -67,6 +67,7 @@ DSH 规则执行引擎 v3 的插件实现。它把 `~/.dsh/AGENTS.md` 当作唯�
 | 版本 | 日期 | 要点 |
 |---|---|---|
 | **0.5.14** | 2026-09-01 | 分点三柱（条件句零授权/显式命名对象锚定/clauseId 隔离）+ skill 词收紧 + 规则 5 引证检测扩展（内部引用无依据→审计注入）+ 规则 31 查证纪律（B+D）+ README 版本四性对齐 |
+| **0.5.17** | 2026-09-03 | A1 规则 2 时间词拆组（当下词=Get-Date① / 历史日期=证据锚②，消除"引用历史日期必判未核对"误报）+ EVIDENCE_MARK_RE 增证据锚（commit hash/版本行/踩坑 N/版本记录） |
 | **0.5.16** | 2026-09-02 | 批评≠授权检测双层重构（STRONG 直接提醒 / WEAK 嫌疑交 judge 裁决——实弹漏判"你怎么还在做！"修复；词表只产嫌疑+模型定论）+ 0.5.15 后批次（Remote 签名一致性回归/调试产物清理/PERSONAL_RE git 门禁/CRITICISM_RE 初版/LICENSE 豁免）+ DSH-STORE 权限披露 |
 | **0.5.15** | 2026-09-02 | 回合末裁决卡片（host 侧 turn/end 裁决摘要 + client 包 dsh-rule-engine-client：可交互 ✅/❌ 卡片；判例登记一次性（per-block）；多次裁决一卡逐条分组；卡片/判例落盘 rule-engine-turn-cards.json 重启不丢） |
 | **0.5.13** | 2026-08-31 | 通用化（声明式绑定/禁用语义/会话寻址/验证通道/发布适用性门禁）+ 阶段二·三（委派豁免/中文顿号路径/ask 节流区分/D1-D3 注入/F1 规则 2/F2 verify-gap） |
