@@ -145,6 +145,12 @@ if (dshCmd) {
 
 // ── 2. 版本 bump（package.json + README 徽章）────────────────────
 if (dryRun) {
+  // 发布门禁 B1/B2（阶段 B，02 v1.4）：dry-run 同样先过门禁（失败即中止，不进入授权/发布）
+  console.log("\n=== 发布门禁 B1（README 版本四性）===");
+  run(`cd /d "${dir}" && node scripts/readme-version-check.mjs`);
+  console.log("\n=== 发布门禁 B2（lib/ 本机痕迹扫描）===");
+  run(`cd /d "${dir}" && node scripts/local-residue-scan.mjs`);
+  console.log("（发布门禁 B1/B2 通过）");
   console.log(`[DRY-RUN] 不修改任何文件。`);
   console.log(`[DRY-RUN] oldVer=${oldVer} → nextVer=${nextVer}`);
   const rd = join(dir, "README.md");
@@ -204,6 +210,12 @@ if (pkg.scripts && pkg.scripts.test) {
 } else {
   console.log("（无 test 脚本，跳过）");
 }
+
+// ── 3.5 发布门禁 B1/B2（阶段 B，02 v1.4：测试全过后、进入授权/发布前；失败即中止）──
+console.log("\n=== 发布门禁 B1（README 版本四性）===");
+run(`cd /d "${dir}" && node scripts/readme-version-check.mjs`);
+console.log("\n=== 发布门禁 B2（lib/ 本机痕迹扫描）===");
+run(`cd /d "${dir}" && node scripts/local-residue-scan.mjs`);
 
 // ── 4. pack + publish ────────────────────────────────────────────
 console.log("\n=== npm pack ===");

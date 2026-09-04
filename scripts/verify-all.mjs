@@ -58,7 +58,8 @@ step("单元（test/run-all.mjs）", process.execPath, [join(root, "test", "run-
 // ── ③ 组合冒烟 ──
 step("组合冒烟（loader-smoke，真实接线+外部世界断言）", process.execPath, [join(root, "test", "loader-smoke.e2e.mjs")]);
 
-// ── ⑤ 工具箱覆盖（0.5.9 门禁） ──
+// ── ⑤ 工具箱覆盖（0.5.9 门禁；0.6.0 B2′：素材经 CHECK_TOOL_CATALOG/--catalog 提供，缺素材=FAIL 含获取方式——
+//    本机运行请设 CHECK_TOOL_CATALOG=D:\...\docs\docs-site-text\...；发布物内不硬编码任何本机路径） ──
 step("工具箱覆盖（官方 tool-catalog vs 分类表，缺失即红）", process.execPath, [join(root, "scripts", "check-tool-coverage.mjs")]);
 
 // ── ⑥ 变更工具守卫链覆盖（0.5.11 规则 24④ 跨工具一致性门禁） ──
@@ -122,6 +123,12 @@ if (judgeReal > 0) {
 // ── ⑧ 发布适用性门禁（T6，2026-08-31：通用化"陌生人视角"硬闸）──
 // 无 AGENTS.md 冷启动 / 空白规则静默 / 任意编号规则声明式绑定 / 格式契约冒烟 / 个人标识扫描
 step("发布适用性门禁（无 AGENTS.md 冷启动 / 空白规则 / 任意编号 / 个人标识扫描）", process.execPath, [join(root, "scripts", "publish-aptitude-check.mjs")]);
+
+// ── ⑨ 发布门禁 B1（阶段 B，2026-09-04：README 版本四性一致性）──
+step("发布门禁 B1（README 版本四性一致性：package.json/徽章/正文/历史表/固定源）", process.execPath, [join(root, "scripts", "readme-version-check.mjs")]);
+
+// ── ⑩ 发布门禁 B2（阶段 B，2026-09-04：lib/ 本机痕迹扫描，词表唯一源）──
+step("发布门禁 B2（lib/ 本机痕迹扫描——词表唯一源，命中即红）", process.execPath, [join(root, "scripts", "local-residue-scan.mjs")]);
 
 console.log(lines.join("\n"));
 const failed = lines.filter((l) => l.startsWith("❌"));
