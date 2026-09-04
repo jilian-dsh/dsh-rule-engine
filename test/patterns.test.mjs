@@ -9,6 +9,7 @@ import {
   isAssemblyMutationTool,
   isAuditCommand,
   isHighRiskEntryFile,
+  isMutationCommand,
   isReadOnlyCommand,
   isSensitiveToolCall,
   writeTargetPathsFromCommand
@@ -61,6 +62,12 @@ assert.deepEqual(absolutePathTokens("& 'D:\\example\\bin\\gh.exe' pr create --re
 assert.deepEqual(absolutePathTokens("D:\\example\\bin\\gh.exe pr create"), [], "bare exe path excluded");
 assert.deepEqual(absolutePathTokens("Copy-Item 'D:\\a\\b.txt' 'D:\\c\\d.txt'"), ["D:\\a\\b.txt", "D:\\c\\d.txt"], "non-exe absolute paths still extracted");
 assert.deepEqual(absolutePathTokens("cmd /c dsh --profile web --dump-config"), [], "cmd.exe not a file target");
+
+// N8（2026-09-04 P2）：数字前置重定向（1>/2>文件）判写；fd 复制（2>&1）不判写——旧 MUTATING_CMD_RE 数字前置盲区
+assert.equal(isMutationCommand("node -e \"x\" 1> out.txt"), true, "N8: numeric redirect 1> is mutation");
+assert.equal(isMutationCommand("node -e \"x\" 2> out.txt"), true, "N8: numeric redirect 2> is mutation");
+assert.equal(isMutationCommand("dsh --version 2>&1"), false, "N8: fd copy 2>&1 not mutation");
+assert.equal(isMutationCommand("git status > /dev/null"), true, "N8: plain redirect still mutation");
 
 // v3.74：审计输出关键字——INCONSISTENT 与 [MISSING] 判定为失败
 assert.equal(auditOutputPassed("RESULT: INCONSISTENT — MUST FIX BEFORE RESTART"), false, "INCONSISTENT not pass");

@@ -147,6 +147,17 @@ hit = guardDecision(stateEntry, { name: "pwsh", arguments: { command: 'node scri
 assert.equal(hit, null, "entry channel with multiple abs paths exempt from 13A");
 hit = guardDecision(stateEntry, { name: "pwsh", arguments: { command: "Set-Content -Path 'C:/outside/x.txt' -Value 'x'" } });
 assert.ok(hit && hit.ruleId === "13A", "plain direct write outside still hits 13A");
+// P2 N1/G1（2026-09-04）：入口通道洞修复回归
+// N1：入口 + 向文件重定向（>）→ 不再豁免（原 `入口 status x > AGENTS.md` 是写文件绕过；
+// 实际拦截点=阶段 C self-protect：isEntryChannelCommand 修复使其不再被误判为纯入口）
+hit = guardDecision(stateEntry, { name: "pwsh", arguments: { command: 'node scripts/example-manual-write.mjs status x > D:/example workspace/.dsh/AGENTS.md' } });
+assert.ok(hit && hit.ruleId === "__self-protect", "N1: entry channel with file redirect blocked by self-protect");
+// G1：引号内换行 = 合法参数（多行 batch 参数不应误拦）
+hit = guardDecision(stateEntry, { name: "pwsh", arguments: { command: 'node scripts/example-manual-write.mjs local "a\nb" c' } });
+assert.equal(hit, null, "G1: quoted newline allowed");
+// fd 复制（2>&1）不构成写（无文件目标）→ 放行；& 链式语义下不再判纯入口，但无写即无拦
+hit = guardDecision(stateEntry, { name: "pwsh", arguments: { command: 'node scripts/example-manual-write.mjs status x 2>&1' } });
+assert.equal(hit, null, "N1: fd copy 2>&1 no write target, allowed");
 
 // 规则 22⑦ 机器化：疑问句 → 变更类工具被拦；同形词（"执行"在"执行方案"中）不豁免；
 // 只读/ask_user_question 放行；非疑问句+指令词（"执行吧"）放行
