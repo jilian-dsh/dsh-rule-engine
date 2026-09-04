@@ -88,51 +88,9 @@ process.env.DSH_WORKSPACE = root;
   check(elem.confidence === "high", "④ 四要素齐全 → 置信 high");
 }
 
-// ── ⑤ 发布物个人标识扫描（files 白名单；--tgz 指定时扫 tgz 实体）──
-const PERSONAL_RE = /jilian|季涟|D:\\example|D:\/example|@qq\.com|@163\.com|@outlook\.com|私人注释|个人工作流|本机规则/;
-{
-  const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
-  const scanFiles = [];
-  const collect = (d, prefix = "") => {
-    for (const f of readdirSync(d)) {
-      const p = join(d, f);
-      if (statSync(p).isDirectory()) { if (!["node_modules", ".backups", ".git", ".codegraph", "test"].includes(f)) collect(p, prefix + f + "/"); }
-      else if (/\.[a-z]+$/i.test(f) && !/\.(png|jpg|jpeg|gif|webp|svg|tgz|map)$/i.test(f) && !f.startsWith(".")) scanFiles.push(prefix + f);
-    }
-  };
-  collect(join(root, "lib"), "lib/");
-  for (const f of ["README.md", "cordis.patch.yml", "package.json"]) {
-    if (existsSync(join(root, f))) scanFiles.push(f);
-  }
-  const hits = [];
-  for (const rel of scanFiles) {
-    try {
-      const text = readFileSync(join(root, rel), "utf8");
-      if (PERSONAL_RE.test(text)) hits.push(rel);
-    } catch { /* 二进制跳过 */ }
-  }
-  if (hits.length) {
-    // 白名单：README.md 的致谢/仓库信息（官方仓库地址含 jilian-dsh 为必要元数据）、
-    // package.json 的 repository 属通用字段 —— 明细列出供人工核对，不直接判红
-    const critical = hits.filter((h) => h.startsWith("lib/"));
-    check(critical.length === 0, `⑤ 发布物标识扫描：lib 源码命中 ${critical.length} 处（${critical.join(", ")}）——个人标识不得进入通用代码`);
-  } else {
-    check(true, "⑤ 发布物标识扫描：files 白名单无个人标识命中（注意：README 仓库信息属必要元数据，不在此列）");
-  }
-  // tgz 实体扫描（--tgz）：gzip 解包 + 512 字节 tar 头扫描文件内容
-  if (tgzArg && existsSync(tgzArg)) {
-    const { gunzipSync } = await import("node:zlib");
-    const buf = gunzipSync(readFileSync(tgzArg));
-    let off = 0;
-    const name = new TextDecoder().decode(buf.subarray(off, off + 100)).replace(/\0.*$/, "");
-    const sizeStr = new TextDecoder().decode(buf.subarray(off + 124, off + 136)).replace(/\0/g, "").trim();
-    off += 512;
-    if (name && sizeStr) { /* 首块为目录/文件；逐块扫描见下 */ }
-    // 简化：直接全文正则扫描（gzip 已解包，文本可读）
-    const text = buf.toString("utf8");
-    check(!PERSONAL_RE.test(text), "⑤ tgz 实体扫描：无个人标识命中");
-  }
-}
+// ── ⑤（2026-09-04 本机化：存在性判据 + 个人词表扫描移入本机发行工具
+//    scripts/scan-real-paths.mjs（判据库 scripts/lib/realpath-guard.js），
+//    本文件只保留 ①-④ 通用发布适用性检查；发布前由本机 release-gate 统一执行门禁）──
 
 // ── --deep：完整引擎链冷启动（子进程，需完整权限/CI；沙箱不可用）──
 if (deep) {
