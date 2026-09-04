@@ -84,7 +84,9 @@ assert.notEqual(judgeCacheKey("16", "a"), judgeCacheKey("16", "b"), "不同文�
 
 // ── v0.5.7 P0-1：验证命令伴生识别 ──────────────────────────────────
 assert.equal(isVerificationCommand('node "D:\\x\\test\\run-all.mjs"'), true, "run-all 全量测试");
-assert.equal(isVerificationCommand("node scripts/example-plugin-load.mjs dsh-rule-engine"), true, "冷加载探针");
+// A2-7（0.6.0）：example-plugin-load 已从通用词表移除（本机脚本名）；通用验证脚本形态不受影响
+assert.equal(isVerificationCommand("node scripts/verify-all.mjs"), true, "通用 verify-all 仍为验证类");
+assert.equal(isVerificationCommand("node scripts/example-plugin-load.mjs dsh-rule-engine"), false, "A4-6: 本机脚本名不再入通用任务契约词表");
 assert.equal(isVerificationCommand("npm run test"), true, "npm test");
 assert.equal(isVerificationCommand('node -e "console.log(1)"'), false, "任意内联命令不算验证");
 

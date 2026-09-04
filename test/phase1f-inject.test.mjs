@@ -40,6 +40,9 @@ const SID = "phase1f";
 const ses = { id: SID };
 const fire = (type, data) => handleSessionEvent(fakeCtx, ses, { type, data });
 
+// A4（0.6.0）：M8 默认关闭 → 本机组显式配置 m8（与生产本机 rule-engine.json 同形态）
+state.localIntegrations = { m8: { enabled: true, entryMarker: "example-manual-write.mjs" } };
+
 // 假 ctx：agents.get 返回假 agent——inject 在"append 发布中"（同步栈内）抛真实异常，
 // 发布边界后正常投递。audit 写临时 DSH_HOME 日志（测试隔离，不污染真实审计）。
 const syncGuard = { appending: false };

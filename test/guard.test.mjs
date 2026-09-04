@@ -139,8 +139,10 @@ hit = guardDecision(state, { name: "pwsh", arguments: { command: "Set-Content -P
 assert.equal(hit, null, "allow Chinese ps1 command without BOM under PS7");
 
 // 统一入口命令豁免 13A（入口内部自带写前备份，属静态扫描已知盲区 → 显式信任）
+// A4（0.6.0）：默认夹具=无 localIntegrations 通用环境（无入口概念）；本机组注入 entryScript 后断言豁免
 const stateEntry = createState();
 stateEntry.configs = [rule13];
+stateEntry.localIntegrations = { entryScript: "example-manual-write.mjs" };
 hit = guardDecision(stateEntry, { name: "pwsh", arguments: { command: 'node scripts/example-manual-write.mjs local "D:/example workspace/.dsh/AGENTS.md" a b' } });
 assert.equal(hit, null, "entry channel exempt from 13A backup check");
 hit = guardDecision(stateEntry, { name: "pwsh", arguments: { command: 'node scripts/example-manual-write.mjs local "D:/example workspace/.dsh/AGENTS.md" "D:\\example\\global-npm\\x" y' } });
@@ -158,6 +160,24 @@ assert.equal(hit, null, "G1: quoted newline allowed");
 // fd 复制（2>&1）不构成写（无文件目标）→ 放行；& 链式语义下不再判纯入口，但无写即无拦
 hit = guardDecision(stateEntry, { name: "pwsh", arguments: { command: 'node scripts/example-manual-write.mjs status x 2>&1' } });
 assert.equal(hit, null, "N1: fd copy 2>&1 no write target, allowed");
+// A4 新增用例 1：无 localIntegrations 时阶段 C 无对象——受保护文件名直写不被 __self-protect 拦
+//（13A 仍按自身语义负责备份检查，此处只锁定"入口守卫不存在"这一层）
+const stateGeneric = createState();
+stateGeneric.configs = [rule13, rule24];
+hit = guardDecision(stateGeneric, { name: "pwsh", arguments: { command: "Set-Content -Path 'C:/anywhere/AGENTS.md' -Value 'x'" } });
+assert.ok(!hit || hit.ruleId !== "__self-protect", "A4-1: no localIntegrations = entry gate absent (non-self-protect hit ok)");
+// A4 新增用例 2：配置 entryScript + 命中通用基线（AGENTS.md）→ 拦截，文案含配置的脚本名
+hit = guardDecision(stateEntry, { name: "pwsh", arguments: { command: "Set-Content -Path 'C:/anywhere/AGENTS.md' -Value 'x'" } });
+assert.ok(hit && hit.ruleId === "__self-protect" && hit.reason.includes("example-manual-write.mjs"), "A4-2: configured entryScript + baseline hit → intercept with configured script name");
+// A4 新增用例 2b：protectedFiles 追加项命中 → 拦截（本机手册路径）
+const stateEntry2 = createState();
+stateEntry2.configs = [rule13];
+stateEntry2.localIntegrations = { entryScript: "example-manual-write.mjs", protectedFiles: ["skills/example-usage-manual/SKILL.md"] };
+hit = guardDecision(stateEntry2, { name: "pwsh", arguments: { command: "Set-Content -Path 'C:/x/.dsh/skills/example-usage-manual/SKILL.md' -Value 'y'" } });
+assert.ok(hit && hit.ruleId === "__self-protect", "A4-2b: protectedFiles appended path intercepted");
+// A4 新增用例 3：经配置 entryScript 写入 → 放行（13A 段 13a 豁免已断言；此处确认无阶段 C 拦截）
+hit = guardDecision(stateEntry, { name: "pwsh", arguments: { command: 'node scripts/example-manual-write.mjs local "C:/anywhere/AGENTS.md" a b' } });
+assert.equal(hit, null, "A4-3: configured entryScript write allowed");
 
 // 规则 22⑦ 机器化：疑问句 → 变更类工具被拦；同形词（"执行"在"执行方案"中）不豁免；
 // 只读/ask_user_question 放行；非疑问句+指令词（"执行吧"）放行
@@ -377,11 +397,19 @@ hit = guardDecision(stateOverwrite, {
 assert.equal(hit, null, "overwrite existing file allowed with backup");
 
 // 规则 12B：skill 未授权拦截；豁免放行；授权后放行
+// A4（0.6.0）：豁免技能列表本机化——本机组注入 manualExempt.skills 后断言豁免；通用组断言无配置=不豁免
 const stateSkill = makeState();
 hit = guardDecision(stateSkill, { name: "skill", arguments: { name: "some-skill" } });
 assert.ok(hit && hit.ruleId === "12B", "deny skill without ask");
+// A4 新增用例 5a：无 manualExempt 配置 → 手册技能不再豁免（通用环境）
 hit = guardDecision(stateSkill, { name: "skill", arguments: { name: "example-usage-manual" } });
-assert.equal(hit, null, "allow exempt skill");
+assert.ok(hit && hit.ruleId === "12B", "A4-5a: no manualExempt config → manual skill not exempt (generic env)");
+// 本机组：注入豁免技能
+stateSkill.localIntegrations = { manualExempt: { skills: ["example-usage-manual", "example-planner"], paths: ["example-usage-manual/SKILL.md"] } };
+hit = guardDecision(stateSkill, { name: "skill", arguments: { name: "example-usage-manual" } });
+assert.equal(hit, null, "A4-5b: allow exempt skill when configured");
+hit = guardDecision(stateSkill, { name: "skill", arguments: { name: "example-planner" } });
+assert.equal(hit, null, "allow exempt example-planner skill when configured");
 hit = guardDecision(stateSkill, { name: "skill", arguments: { name: "some-skill" } });
 assert.ok(hit && hit.ruleId === "12B", "still deny before ask");
 markAskSeen(stateSkill, "global");
@@ -520,15 +548,23 @@ getSessionState(state27SigDiff, "global").mountAuditSignature = "different-hash"
 hit = guardDecision(state27SigDiff, { name: "dev_install_package", arguments: { dir: "D:/another-bundle" } });
 assert.ok(hit && hit.ruleId === "27", "different mount signature denied");
 
-// 规则 19：example-usage-manual/SKILL.md 正文更新免逐次确认
+// 规则 19：本机手册 SKILL.md 正文更新免逐次确认（路径经配置）
+// A4（0.6.0）：无配置=豁免链无对象；本机组注入 manualExempt.paths 后断言豁免
 const stateManual = makeState();
+stateManual.localIntegrations = { manualExempt: { paths: ["example-usage-manual/SKILL.md"] } };
 getSessionState(stateManual, "global").manualReadSeen = true;
 getSessionState(stateManual, "global").turn.toolCount = 1;
 // 用合法的 old/new（new 包含 old，通过写前版本校验）测试 12A 豁免
 hit = guardDecision(stateManual, { name: "edit", arguments: { file_path: "D:/example workspace/.dsh/skills/example-usage-manual/SKILL.md", old_string: "原文行", new_string: "原文行\n新增行" } });
-assert.equal(hit, null, "manual SKILL.md edit exempt from 12A");
+assert.equal(hit, null, "manual SKILL.md edit exempt from 12A when configured");
 hit = guardDecision(stateManual, { name: "edit", arguments: { file_path: "D:/example workspace/.dsh/other.txt", old_string: "a", new_string: "b" } });
 assert.ok(hit && hit.ruleId === "12A", "non-manual outside workspace still denied");
+// A4 新增用例 5c：无 manualExempt 配置 → 手册路径豁免不生效
+const stateManual2 = makeState();
+getSessionState(stateManual2, "global").manualReadSeen = true;
+getSessionState(stateManual2, "global").turn.toolCount = 1;
+hit = guardDecision(stateManual2, { name: "edit", arguments: { file_path: "D:/example workspace/.dsh/skills/example-usage-manual/SKILL.md", old_string: "原文行", new_string: "原文行\n新增行" } });
+assert.ok(hit && hit.ruleId === "12A", "A4-5c: no manualExempt config → manual path not exempt (generic env)");
 
 // 写前版本校验：SKILL.md 无包含关系的编辑 → __version-guard 拦截（写前而非写后回滚）
 // 注：版本守卫先 readFileSync 原文件做模拟校验，目标必须是"真实存在的版本化文件"——
@@ -568,18 +604,24 @@ const verContent = JSON.stringify({ dependencies: { "missing-pkg": "^1.0.0" }, d
 hit = guardDecision(state24Ver, { name: "write", arguments: { file_path: verPkgPath, content: verContent } });
 assert.ok(hit && hit.ruleId === "24" && hit.reason.includes("请先用 dev_install_package"), "version dep with missing package denied with next-step hint");
 
-// 规则 19⑧/21⑨：统一入口防伪造（2026-08-23 修复：注释文本含 example-manual-write.mjs 不得放行直写）
-// 注释伪造：写类命令 + 受保护文件名 + 注释声称走入口 → 仍拦
+// 规则 19⑧/21⑨：统一入口防伪造（2026-08-23 修复：注释文本含入口脚本名不得放行直写）
+// A4（0.6.0）：该守卫由 localIntegrations.entryScript 激活——本机组注入配置后回归
 const stateProtect = createState();
 stateProtect.configs = [];
+stateProtect.localIntegrations = { entryScript: "example-manual-write.mjs" };
 hit = guardDecision(stateProtect, { name: "pwsh", arguments: { command: "Set-Content -Path 'D:/example workspace/.dsh/AGENTS.md' -Value 'x'; # example-manual-write.mjs" } });
 assert.ok(hit && hit.ruleId === "__self-protect", "comment-forged entry channel denied");
-// 合法通道：整条命令仅调用 example-manual-write.mjs（无链式分隔）→ 放行
+// 合法通道：整条命令仅调用统一入口脚本（无链式分隔）→ 放行
 hit = guardDecision(stateProtect, { name: "pwsh", arguments: { command: "node scripts/example-manual-write.mjs rewrite 'D:/example workspace/.dsh/AGENTS.md' out.md --confirmed" } });
 assert.equal(hit, null, "entry channel call allowed");
 // 链式拼接：写命令 + 入口调用串联 → 仍拦
 hit = guardDecision(stateProtect, { name: "pwsh", arguments: { command: "node scripts/example-manual-write.mjs local a b c; Set-Content -Path 'D:/example workspace/.dsh/AGENTS.md' -Value 'x'" } });
 assert.ok(hit && hit.ruleId === "__self-protect", "chained entry + write denied");
+// A4 补充：无配置 = 同一命令不触发阶段 C（通用环境）
+const stateProtectGeneric = createState();
+stateProtectGeneric.configs = [];
+hit = guardDecision(stateProtectGeneric, { name: "pwsh", arguments: { command: "Set-Content -Path 'D:/example workspace/.dsh/AGENTS.md' -Value 'x'; # example-manual-write.mjs" } });
+assert.equal(hit, null, "generic env (no entryScript) → comment-forged command not blocked by entry gate");
 
 // bypass 放行
 const state4 = makeState();
@@ -630,5 +672,33 @@ getSessionState(stateD3b, "global").authorizations = [];
 hit = guardDecision(stateD3b, { name: "edit", arguments: { file_path: "d:/other.txt", old_string: "a", new_string: "b" } });
 assert.ok(hit && hit.ruleId === "12A", "D3: 无授权被拦");
 assert.match(hit.reason, /已有授权范围 \[无\]/, "D3: 无授权描述=无（真值，非硬编码残留）");
+
+// ── A4 新增用例 6（v1.3）：A2-6/A2-7 中性化锁定——RULE_HINTS/拦截文案/契约分类不含本机字样 ──
+// 词表唯一源（02 文件 B2）：scripts/local-residue-markers.txt
+{
+  const { readFileSync, readdirSync, statSync } = await import("node:fs");
+  const { join: pjoin, extname } = await import("node:path");
+  const markers = readFileSync(pjoin(process.cwd(), "scripts", "local-residue-markers.txt"), "utf8")
+    .split("\n").map((s) => s.trim()).filter((s) => s && !s.startsWith("#"));
+  const TEXT_EXT = new Set([".js", ".mjs", ".cjs", ".json", ".md", ".yml", ".yaml"]);
+  function* walk(dir) {
+    for (const e of readdirSync(dir)) {
+      const p = pjoin(dir, e);
+      const st = statSync(p);
+      if (st.isDirectory()) { if (e !== "node_modules" && e !== ".git") yield* walk(p); }
+      else if (TEXT_EXT.has(extname(e))) yield p;
+    }
+  }
+  const hits = [];
+  for (const file of walk(pjoin(process.cwd(), "lib"))) {
+    const text = readFileSync(file, "utf8");
+    text.split("\n").forEach((line, i) => {
+      for (const m of markers) {
+        if (line.includes(m)) hits.push(`${file}:${i + 1} [${m}]`);
+      }
+    });
+  }
+  assert.deepEqual(hits, [], `A4-6: lib/ 残留本机字样（词表唯一源机械扫描）——${hits.join("；")}`);
+}
 
 console.log("guard.test.js PASS");

@@ -9,3 +9,5 @@ logs/
 test/*.bak
 test/p0-inside.txt
 test/中文测试.ps1
+# 本机门禁词表（含本机路径字样，仅供本地扫描；不入库、不进发布物）
+scripts/local-residue-markers.txt

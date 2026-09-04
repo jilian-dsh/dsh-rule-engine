@@ -137,7 +137,8 @@ fire2("user/message", {
   assert.ok(hit && hit.ruleId === "22", "未覆盖路径被规则 22 拦截");
 }
 
-// 6) M8 双通道机制：example-manual-write 落盘成功但同轮无 engram_store → turn/end 注入纠正
+// 6) M8 双通道机制：统一入口落盘成功但同轮无 engram_store → turn/end 注入纠正
+// A4（0.6.0）：M8 默认关闭 → 本机组显式注入 localIntegrations.m8 后断言生效
 {
   const SID3 = "itest-m8";
   const injections = [];
@@ -151,6 +152,10 @@ fire2("user/message", {
     }
   };
   const ses3 = { id: SID3 };
+  state.localIntegrations = {
+    ...(state.localIntegrations || {}),
+    m8: { enabled: true, entryMarker: "example-manual-write.mjs" }
+  };
   const fire3 = (type, data) => handleSessionEvent(fakeCtx, ses3, { type, data });
   fire3("user/message", {
     content: [{ type: "text", text: "请落盘手册" }],
@@ -179,7 +184,35 @@ fire2("user/message", {
   await new Promise((resolve) => setTimeout(resolve, 50));
   assert.ok(
     injections.some((i) => i.content?.[0]?.text?.includes("engram_store")),
-    "M8: example-manual-write 后同轮缺 engram_store 会注入纠正"
+    "M8: 统一入口后同轮缺 engram_store 会注入纠正（显式开启语义）"
+  );
+  // A4 新增用例 4b：无 m8 配置（默认关）→ 同样场景不注入
+  const SID3b = "itest-m8-off";
+  const injections2 = [];
+  const fakeCtx2 = { agents: { get: () => ({ inject: (msg) => injections2.push(msg) }) } };
+  const ses3b = { id: SID3b };
+  delete state.localIntegrations?.m8; // 恢复默认关（正例配置文件为共享单例，需显式清除）
+  const fire3b = (type, data) => handleSessionEvent(fakeCtx2, ses3b, { type, data });
+  fire3b("user/message", {
+    content: [{ type: "text", text: "请落盘手册" }],
+    role: "user", id: "m6b", surfaceOp: "append"
+  });
+  fire3b("tool/call", {
+    name: "pwsh",
+    callId: "c1b",
+    arguments: { command: "node scripts/example-manual-write.mjs local \"D:/.dsh/AGENTS.md\" x" }
+  });
+  fire3b("tool/result", {
+    callId: "c1b",
+    message: {
+      content: [{ type: "tool-result", toolCallId: "c1b", content: [{ type: "text", text: "ok" }] }]
+    }
+  });
+  fire3b("turn/end", {});
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  assert.ok(
+    !injections2.some((i) => i.content?.[0]?.text?.includes("engram_store")),
+    "A4-4b: 无 m8 配置（默认关）→ 不注入 M8 提醒"
   );
 }
 

@@ -1,11 +1,11 @@
 # dsh-rule-engine
 
 ![npm](https://img.shields.io/npm/v/dsh-rule-engine)
-![version](https://img.shields.io/badge/version-0.5.17-blue)
+![version](https://img.shields.io/badge/version-0.6.0-blue)
 
 DSH 规则执行引擎 v3 的插件实现。它把 `~/.dsh/AGENTS.md` 当作唯一真相源，自动解析规则四要素与执行等级，再通过「工具守卫 + 文本检测 + 时序检查 + 审计台账」执行用户规则，而不是内置一套与用户无关的安全清单。
 
-> 当前版本 **0.5.16**（2026-09-02 已发布三通道；0.5.15 = 2026-09-02 判例登记批次（npm 0.5.15 / git tag / Release 带 tgz）；0.5.14 = 2026-09-01 三通道，git 8105d3e）。本插件面向"规则机器化执行"：规则写在 AGENTS.md 里，引擎负责让它们真的被遵守；所有规则动态解析，规则增删改后无需重写插件。
+> 当前版本 **0.6.0**（**行为变更**：`localIntegrations` 本机集成层——配置存在 = 守卫存在；无配置 = 该守卫在代码路径上不存在，详见「本机集成（可选）」节；**0.6.0 迁移示例见该节**）。本插件面向"规则机器化执行"：规则写在 AGENTS.md 里，引擎负责让它们真的被遵守；所有规则动态解析，规则增删改后无需重写插件。
 
 ## 项目背景
 
@@ -39,6 +39,37 @@ DSH 规则执行引擎 v3 的插件实现。它把 `~/.dsh/AGENTS.md` 当作唯�
 
 当前实现以「模式库兜底」为主，LLM 理解器预留扩展点；所有规则均从 AGENTS.md 实时解析。
 
+## 本机集成（可选，0.6.0）
+
+**核心设计原则：配置存在 = 守卫存在；配置不存在 = 该守卫在代码路径上根本不存在**（不是"可覆盖"，是"默认无"）。0.6.0 起，此前依赖内置默认值的本机约定（统一入口脚本名、本机手册/技能豁免、M8 双通道、本机追加受保护文件）全部移入 `rule-engine.json` 的 `localIntegrations` 配置段；通用用户零配置即零本机行为。
+
+字段（全部经 `localIntegrations`，示例一律用占位名）：
+
+| 字段 | 含义 | 缺省行为（无配置） |
+| --- | --- | --- |
+| `entryScript` | 本机统一入口脚本名（如 `your-entry-script.mjs`）；配置后才存在"合法写入通道"概念 | 无 = 阶段 C 守卫整体不存在（直写受保护文件不受引擎限制） |
+| `protectedFiles` | **追加**受保护文件（在通用基线 `AGENTS.md`/`settings.yaml` 等 7 项之上） | 无 = 仅用通用基线；无 `entryScript` 时本字段一并失效 |
+| `m8.enabled` / `m8.entryMarker` | M8 双通道（经统一入口落盘手册/AGENTS 后须同轮记忆沉淀，缺失注入纠正） | 无 = M8 机制整体禁用（**v0.6.0 语义反转：默认开启 → 显式开启**） |
+| `manualExempt.skills/paths` | 规则 18"先查手册"与 12B/12A 豁免链的本机手册/技能 | 无 = 该检测链无对象、自然静默 |
+
+配置示例（`~/.dsh/rule-engine.json`，占位名）：
+
+```json
+"localIntegrations": {
+  "entryScript": "your-entry-script.mjs",
+  "protectedFiles": [
+    "skills/your-manual/SKILL.md"
+  ],
+  "m8": { "enabled": true, "entryMarker": "your-entry-script.mjs" },
+  "manualExempt": {
+    "skills": ["your-manual", "your-planner"],
+    "paths": ["your-manual/SKILL.md"]
+  }
+}
+```
+
+**迁移（0.5.x → 0.6.0）**：0.6.0 前默认生效的守卫在升级后**不再默认激活**——需要本机行为（统一入口保护 / 手册豁免 / M8 记忆链 / 追加受保护文件）时，按上表把配置段并入本机 `rule-engine.json`。**通用用户无需任何配置**；未配置时相关守卫路径不存在，直写任意文件不受引擎限制（这是 0.6.0 的设计决定：发布物无权限制其他用户的写入方式；本机约定属于本机配置，不属于通用引擎）。
+
 ## 注入噪音治理（0.5.6 / 0.5.7）
 
 只提醒真正值得提醒的事——这条原则贯穿 0.5.6 与 0.5.7：
@@ -66,6 +97,7 @@ DSH 规则执行引擎 v3 的插件实现。它把 `~/.dsh/AGENTS.md` 当作唯�
 
 | 版本 | 日期 | 要点 |
 |---|---|---|
+| **0.6.0** | 2026-09-04 | **行为变更**：通用与本机分离——`localIntegrations` 本机集成层（entryScript/protectedFiles/m8/manualExempt 四键）；此前默认强制的守卫（统一入口阶段 C / 手册/技能豁免 / M8 双通道）改为"配置存在=守卫存在、无配置=代码路径上不存在"；`m8` 语义反转（默认开启→显式开启）；消号本机痕迹（lib/ 零命中，词表唯一源 `scripts/local-residue-markers.txt`） |
 | **0.5.14** | 2026-09-01 | 分点三柱（条件句零授权/显式命名对象锚定/clauseId 隔离）+ skill 词收紧 + 规则 5 引证检测扩展（内部引用无依据→审计注入）+ 规则 31 查证纪律（B+D）+ README 版本四性对齐 |
 | **0.5.17** | 2026-09-03 | A1 规则 2 时间词拆组（当下词=Get-Date① / 历史日期=证据锚②，消除"引用历史日期必判未核对"误报）+ EVIDENCE_MARK_RE 增证据锚（commit hash/版本行/踩坑 N/版本记录） |
 | **0.5.16** | 2026-09-02 | 批评≠授权检测双层重构（STRONG 直接提醒 / WEAK 嫌疑交 judge 裁决——实弹漏判"你怎么还在做！"修复；词表只产嫌疑+模型定论）+ 0.5.15 后批次（Remote 签名一致性回归/调试产物清理/PERSONAL_RE git 门禁/CRITICISM_RE 初版/LICENSE 豁免）+ DSH-STORE 权限披露 |
