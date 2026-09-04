@@ -113,7 +113,7 @@ DSH 规则执行引擎 v3 的插件实现。它把 `~/.dsh/AGENTS.md` 当作唯�
 
 ## 发行固定源
 
-- **0.6.0（当前）** 固定于 main Commit `c4a39f1`（`git checkout c4a39f1` 可复现 npm `dsh-rule-engine@0.6.0` 与 GitHub Release v0.6.0 同源代码——0.6.0 = 本机集成层（localIntegrations 四键）+ 本机痕迹消号 + li-skipped 审计（无配置默认无留痕）；词表文件 `scripts/local-residue-markers.txt` 为本机门禁工具，不入库、不进发布物（见 .gitignore / package.json files 排除）。固定源之后的提交仅限 README 指针文本）。
+- **0.6.0（当前）** 固定于 main Commit `3df87e1`（`git checkout 3df87e1` 可复现 npm `dsh-rule-engine@0.6.0` 与 GitHub Release v0.6.0 同源代码——0.6.0 = 本机集成层（localIntegrations 四键）+ 本机痕迹消号 + li-skipped/entry-script-missing 启动审计；词表文件 `scripts/local-residue-markers.txt` 为本机门禁工具，不入库、不进发布物（见 .gitignore / package.json files 排除）。固定源之后的提交仅限 README 指针文本）。
 
 ## 任务契约与反过度工程（可选）
 
