@@ -206,7 +206,7 @@ dsh plugin --profile web add dsh-rule-engine
 感谢以下项目与作者的无私开源付出，本项目在开发过程中直接受益：
 
 - **DeepSeek Harness 官方团队（@deepseek-ai）**：提供了 DSH 平台、插件机制与官方文档。
-- **本机已安装插件的作者们**：
+- **社区插件的作者们**：
   - dsh-guardian（lonelymoon87）
   - dsh-visualize（Nagi-ovo）
   - dsh-rules-manager（jilian-dsh）
