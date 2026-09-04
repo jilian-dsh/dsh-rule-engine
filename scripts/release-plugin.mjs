@@ -111,7 +111,7 @@ checkDependencyPair();
 // ── 1. 前置检查 ──────────────────────────────────────────────────
 if (!/^\d+\.\d+\.\d+$/.test(nextVer)) fail(`版本号格式错误：${nextVer}`);
 // 2026-09-02 修复：gh auth status 的 "Logged in" 输出在 stderr（新版 gh），stdout 可能为空空
-// → 2>&1 合并 stderr，避免已认证被误判"gh 未认证"（实测 jilian-dsh keyring 已登录却判失败）
+// → 2>&1 合并 stderr，避免已认证被误判"gh 未认证"（实测 keyring 已登录却判失败）
 if (!quiet("gh auth status 2>&1").includes("Logged in")) fail("gh 未认证");
 const whoami = quiet("npm whoami 2>&1");
 if (!whoami) fail("npm 未认证（npm whoami 失败）");
@@ -246,7 +246,10 @@ const repo = (repoOverride || quiet(`cd /d "${dir}" && git remote get-url origin
 const token = quiet("gh auth token");
 if (!token) fail("无法获取 gh token");
 // 与 v3.72 同款通道：token 拼进 HTTPS URL 直推（避开沙箱下 msys 凭据管道的 EPERM）
-const pushUrl = `https://jilian-dsh:${token}@github.com/${repo}.git`;
+// 0.6.0：用户名从 repo 归属提取（不再硬编码——发布物不含本机账号）
+const repoOwner = repo.split("/")[0];
+if (!repoOwner) fail("无法解析仓库 owner（repo=" + repo + "）");
+const pushUrl = `https://${repoOwner}:${token}@github.com/${repo}.git`;
 // 2026-08-31 修复：repoRoot 实测 git 仓库根（插件目录可能只是子目录，如 rules-manager 在 oss 仓库内）；
 // stageSpec = 插件目录相对仓库根路径（防 git add -A 误带仓库内无关改动/未跟踪物）
 const repoRoot = quiet(`cd /d "${dir}" && git rev-parse --show-toplevel`).trim();

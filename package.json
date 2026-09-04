@@ -12,6 +12,7 @@
   "files": [
     "lib",
     "scripts",
+    "!scripts/local-residue-markers.txt",
     "upgrade-impact.json",
     "cordis.patch.yml",
     "README.md",
