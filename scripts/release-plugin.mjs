@@ -12,7 +12,7 @@
 //       -> git commit+push -> gh release（带 tgz asset）
 // 安全：token 经环境变量注入，不在命令文本/日志中打印
 import { execSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync, mkdirSync, copyFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync, copyFileSync, statSync, rmSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -216,12 +216,34 @@ console.log("\n=== 发布门禁 B1（README 版本四性）===");
 run(`cd /d "${dir}" && node scripts/readme-version-check.mjs`);
 console.log("\n=== 发布门禁 B2（lib/ 本机痕迹扫描）===");
 run(`cd /d "${dir}" && node scripts/local-residue-scan.mjs`);
+// ── 3.6 存在性扫描（泄露预防，2026-09-05）：本机增强门禁——REAL_PATHS_SCAN 指向存在性扫描器 →
+// 0 命中才继续；未设置=WARN（本机工具不进包，通用用户无此工具；发布流水线建议设置）──
+const scanReal = process.env.REAL_PATHS_SCAN;
+if (scanReal) {
+  console.log("\n=== 存在性扫描（真实路径判据，0 命中红线）===");
+  run(`node "${scanReal}" --root "${dir}"`);
+} else {
+  console.log("（未设置 REAL_PATHS_SCAN——存在性扫描跳过（本机增强门禁，建议发布前设置））");
+}
+console.log("（发布门禁 B1/B2/存在性 通过）");
 
 // ── 4. pack + publish ────────────────────────────────────────────
 console.log("\n=== npm pack ===");
 run(`cd /d "${dir}" && npm pack --pack-destination .`);
 const tgz = `${name}-${nextVer}.tgz`;
 if (!existsSync(join(dir, tgz))) fail(`打包产物缺失：${tgz}`);
+
+// ── 4.5 发布物存在性扫描（泄露预防硬项，2026-09-05）：解包 tgz → 判据库直扫（0 命中才 publish）──
+const scanReal2 = process.env.REAL_PATHS_SCAN;
+if (scanReal2) {
+  const unpackDir = join(dir, ".pkg-check-" + nextVer);
+  if (existsSync(unpackDir)) rmSync(unpackDir, { recursive: true, force: true });
+  mkdirSync(unpackDir, { recursive: true });
+  run(`tar -xzf "${join(dir, tgz)}" -C "${unpackDir}"`);
+  console.log("\n=== 发布物存在性扫描（解包直扫，0 命中红线）===");
+  run(`node "${scanReal2}" --root "${join(unpackDir, "package")}"`);
+  console.log("（发布物存在性扫描通过）");
+}
 
 console.log("\n=== npm publish ===");
 run(`cd /d "${dir}" && ${proxyPrefix()}npm publish ${tgz}`);

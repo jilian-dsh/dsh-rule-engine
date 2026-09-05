@@ -130,6 +130,17 @@ step("发布门禁 B1（README 版本四性一致性：package.json/徽章/正�
 // ── ⑩ 发布门禁 B2（阶段 B，2026-09-04：lib/ 本机痕迹扫描，词表唯一源）──
 step("发布门禁 B2（lib/ 本机痕迹扫描——词表唯一源，命中即红）", process.execPath, [join(root, "scripts", "local-residue-scan.mjs")]);
 
+// ── ⑪ 存在性扫描（泄露预防，2026-09-05：真实路径判据——REAL_PATHS_SCAN 指向扫描器，0 命中才算过；
+//    未设置=WARN（本机增强门禁，通用环境无此工具）──
+{
+  const scanReal = process.env.REAL_PATHS_SCAN;
+  if (scanReal) {
+    step("存在性扫描（真实路径判据，0 命中红线）", process.execPath, [scanReal, "--root", root]);
+  } else {
+    lines.push("⚠️ 存在性扫描：未设置 REAL_PATHS_SCAN（本机增强门禁；发布流水线建议设置）");
+  }
+}
+
 console.log(lines.join("\n"));
 const failed = lines.filter((l) => l.startsWith("❌"));
 if (failed.length) {
