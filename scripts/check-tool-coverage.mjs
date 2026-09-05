@@ -22,7 +22,10 @@ if (!CATALOG) {
     console.warn("WARNING：--skip-catalog 已传——工具箱覆盖层跳过（素材缺失；发布流水线禁止此参数）");
     process.exit(0);
   }
-  console.error("TOOL-CATALOG-MISSING：未指定官方 tool-catalog.txt（用 --catalog <path> 或环境变量 CHECK_TOOL_CATALOG；本机素材：dsh-project/docs/docs-site-text/en/reference/tool-catalog.txt，官方文档纯文本镜像）——FAIL，禁止静默跳过");
+  console.error("TOOL-CATALOG-MISSING：未指定官方 tool-catalog.txt——请用 --catalog <path> 或环境变量 CHECK_TOOL_CATALOG 指定（官方文档产物可从 DSH 官方文档仓库 docs-site-text 获取）；FAIL，禁止静默跳过");
+  if (process.env.LOCAL_CATALOG_HINT) {
+    console.error(`（本机提示：${process.env.LOCAL_CATALOG_HINT}）`);
+  }
   process.exit(1);
 }
 
