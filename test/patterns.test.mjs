@@ -208,6 +208,11 @@ assert.equal(needsApprovalReminder("请把方案落盘"), false, "含落盘词 �
 assert.equal(needsApprovalReminder("调整一下然后落盘到手册"), false, "调整+落盘并存 → 不提醒");
 assert.equal(needsApprovalReminder("今天天气不错"), false, "无关消息 → 不提醒");
 assert.equal(needsApprovalReminder(""), false, "空文本 → 不提醒");
+// ── 2026-09-06 M7 修复：ask 授权答复豁免 approval-gap ──
+assert.equal(needsApprovalReminder("调整补充方案", { askApproved: true }), false, "ask 已授权（答复后）→ 豁免 approval-gap");
+assert.equal(needsApprovalReminder("调整补充方案", { askApproved: false }), true, "未获 ask 授权 → 仍提醒");
+assert.equal(needsApprovalReminder("调整补充方案", {}), true, "缺省未授权 → 仍提醒");
+assert.equal(needsApprovalReminder("落盘到手册", { askApproved: true }), false, "ask 授权 + 含落盘词 → 不提醒（本就 false）");
 
 // ── 0.5.11：低风险新建豁免 = 目标尚不存在（用户定稿）──
 import { isLowRiskWorkspaceNew, setWorkspaceRoot, isOutsideWorkspace } from "../lib/core/patterns.js";

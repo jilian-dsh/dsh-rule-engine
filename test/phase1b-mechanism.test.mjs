@@ -114,6 +114,7 @@ const { toolClass, unknownToolDecision } = await import("../lib/core/tool-catalo
   assert.equal(toolClass("read", { file_path: "D:/a.txt" }), "analysis", "read = analysis");
   assert.equal(toolClass("web_fetch", { url: "https://example.com" }), "analysis", "web_fetch = analysis（官方只读联网，2026-08-25 补）");
   assert.equal(toolClass("web_search", { queries: ["x"] }), "analysis", "web_search = analysis（官方只读联网，2026-08-25 补）");
+  assert.equal(toolClass("list_subagent_models", {}), "analysis", "list_subagent_models = analysis（官方子代理模型发现，2026-09-06 工具目录漂移补录）");
   assert.equal(toolClass("future_tool_xyz", { x: 1 }), "unknown", "未归类工具 = unknown");
   assert.equal(toolClass("pwsh", { command: "npm test" }), "analysis", "只读命令 = analysis");
   assert.equal(toolClass("pwsh", { command: "Remove-Item D:/x" }), "mutating", "写命令 = mutating");
