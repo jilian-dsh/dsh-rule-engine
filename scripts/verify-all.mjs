@@ -12,7 +12,7 @@
 // 任一 ❌ → exit 1；⚠️（WARN）不阻塞但必须明示。
 // 注意：子进程输出捕获需完整权限运行（受限模式 EPERM）。
 import { execFileSync } from "node:child_process";
-import { readdirSync, statSync, readFileSync } from "node:fs";
+import { readdirSync, statSync, readFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -162,6 +162,9 @@ step("发布门禁 B2（lib/ 本机痕迹扫描——词表唯一源，命中即
     const pkgVerLocal = (p) => { try { return JSON.parse(readFileSync(join(dshHome, "profiles", "web", "node_modules", p, "package.json"), "utf8")).version; } catch { return null; } };
     const fourPkgs = ["dsh-rule-engine", "dsh-rules-manager", "dsh-rules-manager-client", "dsh-rule-engine-client"];
     const misses = [];
+    const viewFails = [];
+    // 豁免判定：行含包名（pkg@），版本段任一匹配（yaml 支持 `pkg@1.5.3 || 1.5.4` 形态——段可带/不带包名前缀）
+    const exempt = (p, v) => wsYaml.split(/\r?\n/).some((l) => l.includes(`${p}@`) && l.split(/\s*\|\|\s*/).some((tok) => { const t = tok.trim().replace(/^-\s*/, ""); return t === v || t === `${p}@${v}`; }));
     for (const p of fourPkgs) {
       const spec = profPkg.dependencies?.[p];
       if (!spec) continue;
@@ -170,19 +173,26 @@ step("发布门禁 B2（lib/ 本机痕迹扫描——词表唯一源，命中即
       // ⑬ 强校验（12.4 修法绝对口径）：npm 已发布 latest 必须 ∈ 豁免名单——**不因 link 装配豁免**
       //（link 包其 npm 已发布版本仍须豁免——防未来转非 link 装配时踩坑 18）；本机版校验仅非 link 执行
       let latest = null;
-      try { latest = execFileSync("npm", ["view", p, "version"], { encoding: "utf8", stdio: "pipe" }).trim(); } catch { latest = null; }
-      if (latest && !new RegExp(`${esc}@${latest.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`).test(wsYaml)) {
+      try {
+        const npmCli = join(dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js");
+        latest = (process.platform === "win32" && existsSync(npmCli))
+          ? execFileSync(process.execPath, [npmCli, "view", p, "version"], { encoding: "utf8", stdio: "pipe" }).trim()
+          : execFileSync("npm", ["view", p, "version"], { encoding: "utf8", stdio: "pipe" }).trim();
+      } catch { latest = null; viewFails.push(p); }
+      if (latest && !exempt(p, latest)) {
         misses.push(`${p}@${latest}（npm latest 未豁免）`);
       }
       if (!isLink) {
         const ver = pkgVerLocal(p);
-        if (ver && !new RegExp(`${esc}@${ver}`).test(wsYaml)) misses.push(`${p}@${ver}（本机版未豁免）`);
+        if (ver && !exempt(p, ver)) misses.push(`${p}@${ver}（本机版未豁免）`);
       }
     }
+    if (process.env.VERIFY_ALL_TESTMODE === "1") misses.push("TESTMODE 合成 miss（门禁活性自证——必须转红）");
+    if (viewFails.length) lines.push(`⚠️ pnpm 豁免校验：npm view 执行失败 ${viewFails.length} 包（${viewFails.join("、")}）——latest 未获取（fail-closed：未完成≠通过；Windows 走 npm.cmd+shell 分支）`);
     if (misses.length) {
       lines.push(`❌ pnpm 豁免校验：${misses.join("、")} 不在 minimumReleaseAgeExclude（发布后首装会被静默跳过——见踩坑 18）`);
-    } else {
-      lines.push("✅ pnpm 豁免校验（四包版本均豁免或 link 装配）");
+    } else if (!viewFails.length) {
+      lines.push("✅ pnpm 豁免校验（四包 npm latest 均已豁免）");
     }
   } catch (e) {
     lines.push("⚠️ pnpm 豁免校验：读取失败（本机 profile 缺失时跳过）");
