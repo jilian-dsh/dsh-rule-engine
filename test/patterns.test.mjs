@@ -12,8 +12,18 @@ import {
   isMutationCommand,
   isReadOnlyCommand,
   isSensitiveToolCall,
+  PROTECTED_FILENAME_RE,
   writeTargetPathsFromCommand
 } from "../lib/core/patterns.js";
+
+// ── 配置化受保护清单（0.6.x 窗口 B；第三方 v1.3 §5.1 验收口径）──────────────
+// 通用基线=引擎内建文档/配置名；用户手册分卷（CHANGELOG.md / error-patterns.md / pitfalls/）
+// 属本机条目——由 rule-engine.json localIntegrations.protectedFiles 承载（guard.test A4-2b/2c 链锁配置拦截路径）
+assert.equal(PROTECTED_FILENAME_RE.test("Set-Content skills/example-usage-manual/CHANGELOG.md -Value x"), false, "baseline excludes CHANGELOG.md (local config carries it)");
+assert.equal(PROTECTED_FILENAME_RE.test("Set-Content skills/example-usage-manual/error-patterns.md -Value x"), false, "baseline excludes error-patterns.md");
+assert.equal(PROTECTED_FILENAME_RE.test("Set-Content skills/example-usage-manual/pitfalls/x.md -Value x"), false, "baseline excludes pitfalls dir");
+assert.equal(PROTECTED_FILENAME_RE.test("Set-Content AGENTS.md -Value x"), true, "baseline keeps AGENTS.md");
+assert.equal(PROTECTED_FILENAME_RE.test("Set-Content rule-engine.json -Value x"), true, "baseline keeps rule-engine.json");
 
 // 带空格引号路径
 const cmd = "Copy-Item -LiteralPath 'D:\\example workspace\\a.jsonl.zstd' -Destination 'D:\\example workspace\\b.jsonl.zstd' -Force";

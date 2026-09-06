@@ -175,6 +175,15 @@ stateEntry2.configs = [rule13];
 stateEntry2.localIntegrations = { entryScript: "example-manual-write.mjs", protectedFiles: ["skills/example-usage-manual/SKILL.md"] };
 hit = guardDecision(stateEntry2, { name: "pwsh", arguments: { command: "Set-Content -Path 'C:/x/.dsh/skills/example-usage-manual/SKILL.md' -Value 'y'" } });
 assert.ok(hit && hit.ruleId === "__self-protect", "A4-2b: protectedFiles appended path intercepted");
+// A4 新增用例 2c（配置化受保护清单 0.6.x 窗口 B）：本机分卷条目经 protectedFiles 承载——
+// CHANGELOG.md / error-patterns.md / pitfalls 配置命中即拦（patterns.js 通用基线已不含本机条目）
+const stateEntry3 = createState();
+stateEntry3.configs = [rule13];
+stateEntry3.localIntegrations = { entryScript: "example-manual-write.mjs", protectedFiles: ["skills/example-usage-manual/CHANGELOG.md", "skills/example-usage-manual/error-patterns.md", "skills/example-usage-manual/pitfalls"] };
+hit = guardDecision(stateEntry3, { name: "pwsh", arguments: { command: "Set-Content -Path 'C:/x/.dsh/skills/example-usage-manual/CHANGELOG.md' -Value 'y'" } });
+assert.ok(hit && hit.ruleId === "__self-protect", "A4-2c: config-protected CHANGELOG.md intercepted");
+hit = guardDecision(stateEntry3, { name: "pwsh", arguments: { command: "Set-Content -Path 'C:/x/.dsh/skills/example-usage-manual/pitfalls/2026-09.md' -Value 'y'" } });
+assert.ok(hit && hit.ruleId === "__self-protect", "A4-2c: config-protected pitfalls dir intercepted");
 // A4 新增用例 3：经配置 entryScript 写入 → 放行（13A 段 13a 豁免已断言；此处确认无阶段 C 拦截）
 hit = guardDecision(stateEntry, { name: "pwsh", arguments: { command: 'node scripts/example-manual-write.mjs local "C:/anywhere/AGENTS.md" a b' } });
 assert.equal(hit, null, "A4-3: configured entryScript write allowed");
