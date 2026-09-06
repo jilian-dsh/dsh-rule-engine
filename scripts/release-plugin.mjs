@@ -227,6 +227,16 @@ if (scanReal) {
 }
 console.log("（发布门禁 B1/B2/存在性 通过）");
 
+// ── 3.7 判据库回归（窗口 B 接入，2026-09-06）：净化判据（L1 敏感串全集全历史 0 非白名单 + L2 根段未覆盖 0）
+// 本机增强门禁——JUDGE_SCAN 指向本机判定门禁（stage1 判据库扫描器包装）；未设置=WARN ──
+const judgeScan = process.env.JUDGE_SCAN;
+if (judgeScan) {
+  console.log("\n=== 判据库回归（净化判据，0 非白名单 / 0 未覆盖 红线）===");
+  run(`node "${judgeScan}" --root "${dir}"`);
+} else {
+  console.log("（未设置 JUDGE_SCAN——判据库回归跳过（本机增强门禁，建议发布前设置））");
+}
+
 // ── 4. pack + publish ────────────────────────────────────────────
 console.log("\n=== npm pack ===");
 run(`cd /d "${dir}" && npm pack --pack-destination .`);

@@ -141,6 +141,17 @@ step("发布门禁 B2（lib/ 本机痕迹扫描——词表唯一源，命中即
   }
 }
 
+// ── ⑫ 判据库回归（窗口 B 接入，2026-09-06：净化判据 L1 敏感串全集全历史 0 非白名单 + L2 根段未覆盖 0
+//    红线——JUDGE_SCAN 指向本机判定门禁（stage1 判据库扫描器包装），未设置=WARN（本机增强门禁）──
+{
+  const judgeScan = process.env.JUDGE_SCAN;
+  if (judgeScan) {
+    step("判据库回归（净化判据全历史 0 非白名单 + L2 未覆盖 0 红线）", process.execPath, [judgeScan, "--root", root]);
+  } else {
+    lines.push("⚠️ 判据库回归：未设置 JUDGE_SCAN（本机增强门禁；发布流水线建议设置）");
+  }
+}
+
 console.log(lines.join("\n"));
 const failed = lines.filter((l) => l.startsWith("❌"));
 if (failed.length) {
