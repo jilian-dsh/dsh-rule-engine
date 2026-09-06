@@ -152,6 +152,35 @@ step("发布门禁 B2（lib/ 本机痕迹扫描——词表唯一源，命中即
   }
 }
 
+// ── ⑬ pnpm 豁免校验（批次四 04 1.1 B1 口径：npm 已发布版本 ∖ 豁免名单 = ∅；
+//    link 装配豁免——四包当前 version 必须 ∈ minimumReleaseAgeExclude 或 link——防"发布后首装静默装旧版"）──
+{
+  try {
+    const dshHome = process.env.DSH_HOME || join(process.env.USERPROFILE || "", ".dsh");
+    const wsYaml = readFileSync(join(dshHome, "profiles", "web", "pnpm-workspace.yaml"), "utf8");
+    const profPkg = JSON.parse(readFileSync(join(dshHome, "profiles", "web", "package.json"), "utf8"));
+    const pkgVerLocal = (p) => { try { return JSON.parse(readFileSync(join(dshHome, "profiles", "web", "node_modules", p, "package.json"), "utf8")).version; } catch { return null; } };
+    const fourPkgs = ["dsh-rule-engine", "dsh-rules-manager", "dsh-rules-manager-client", "dsh-rule-engine-client"];
+    const misses = [];
+    for (const p of fourPkgs) {
+      const spec = profPkg.dependencies?.[p];
+      if (!spec) continue;
+      if (typeof spec === "string" && spec.startsWith("link:")) continue; // link 装配不受保护期约束
+      const ver = pkgVerLocal(p);
+      if (!ver) continue;
+      const esc = p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      if (!new RegExp(`${esc}@${ver}`).test(wsYaml)) misses.push(`${p}@${ver}`);
+    }
+    if (misses.length) {
+      lines.push(`❌ pnpm 豁免校验：${misses.join("、")} 不在 minimumReleaseAgeExclude（发布后首装会被静默跳过——见踩坑 18）`);
+    } else {
+      lines.push("✅ pnpm 豁免校验（四包版本均豁免或 link 装配）");
+    }
+  } catch (e) {
+    lines.push("⚠️ pnpm 豁免校验：读取失败（本机 profile 缺失时跳过）");
+  }
+}
+
 console.log(lines.join("\n"));
 const failed = lines.filter((l) => l.startsWith("❌"));
 if (failed.length) {

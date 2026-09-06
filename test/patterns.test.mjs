@@ -213,6 +213,10 @@ assert.equal(needsApprovalReminder("调整补充方案", { askApproved: true }),
 assert.equal(needsApprovalReminder("调整补充方案", { askApproved: false }), true, "未获 ask 授权 → 仍提醒");
 assert.equal(needsApprovalReminder("调整补充方案", {}), true, "缺省未授权 → 仍提醒");
 assert.equal(needsApprovalReminder("落盘到手册", { askApproved: true }), false, "ask 授权 + 含落盘词 → 不提醒（本就 false）");
+// ── 0.6.x：建议+执行词并存 = 执行分点（M7 误报修复）──
+assert.equal(needsApprovalReminder("按第三方的建议按顺序执行修改"), false, "建议+执行并存 → 豁免（执行语）");
+assert.equal(needsApprovalReminder("根据建议推进批次二"), false, "建议+推进 → 豁免");
+assert.equal(needsApprovalReminder("请调整方案"), true, "纯方案性 → 仍提醒");
 
 // ── 0.5.11：低风险新建豁免 = 目标尚不存在（用户定稿）──
 import { isLowRiskWorkspaceNew, setWorkspaceRoot, isOutsideWorkspace } from "../lib/core/patterns.js";

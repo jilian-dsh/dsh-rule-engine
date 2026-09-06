@@ -184,6 +184,12 @@ hit = guardDecision(stateEntry3, { name: "pwsh", arguments: { command: "Set-Cont
 assert.ok(hit && hit.ruleId === "__self-protect", "A4-2c: config-protected CHANGELOG.md intercepted");
 hit = guardDecision(stateEntry3, { name: "pwsh", arguments: { command: "Set-Content -Path 'C:/x/.dsh/skills/example-usage-manual/pitfalls/2026-09.md' -Value 'y'" } });
 assert.ok(hit && hit.ruleId === "__self-protect", "A4-2c: config-protected pitfalls dir intercepted");
+// A4 新增用例 2d（0.6.x `>` 引号感知修复）：统一入口参数值含 >（markdown 引用符/占位符）不再被重定向误判
+const stateEntry4 = createState();
+stateEntry4.configs = [rule13];
+stateEntry4.localIntegrations = { entryScript: "example-manual-write.mjs" };
+hit = guardDecision(stateEntry4, { name: "pwsh", arguments: { command: "node scripts/example-manual-write.mjs local 'D:/x' '> 踩坑 96-115（说明）' '> 踩坑 96-118（说明）'" } });
+assert.equal(hit, null, "A4-2d: quoted > in args not treated as redirect (entry channel allowed)");
 // A4 新增用例 3：经配置 entryScript 写入 → 放行（13A 段 13a 豁免已断言；此处确认无阶段 C 拦截）
 hit = guardDecision(stateEntry, { name: "pwsh", arguments: { command: 'node scripts/example-manual-write.mjs local "C:/anywhere/AGENTS.md" a b' } });
 assert.equal(hit, null, "A4-3: configured entryScript write allowed");

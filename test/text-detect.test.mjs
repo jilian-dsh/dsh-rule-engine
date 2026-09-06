@@ -431,3 +431,10 @@ const cfgWith31 = state.configs.concat([rule31]);
 }
 
 console.log("text-detect.test.js PASS");
+
+// ── 0.6.x（tsk_527d222c 第一期）：路径缩写 B 级检测 ──
+import { hasPathAbbrev } from "../lib/core/text-detect.js";
+assert.equal(hasPathAbbrev("请查看 reports\\xx.md"), true, "缩写 reports\\ → 命中");
+assert.equal(hasPathAbbrev("请查看 D:\\example\\workspace\\reports\\xx.md"), false, "完整盘符 → 不命中");
+assert.equal(hasPathAbbrev("请查看 ~/.dsh/AGENTS.md"), true, "~/.dsh 缩写 → 命中");
+console.log("text-detect.path-abbrev PASS");
