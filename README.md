@@ -5,7 +5,7 @@
 
 DSH 规则执行引擎 v3 的插件实现。它把 `~/.dsh/AGENTS.md` 当作唯一真相源，自动解析规则四要素与执行等级，再通过「工具守卫 + 文本检测 + 时序检查 + 审计台账」执行用户规则，而不是内置一套与用户无关的安全清单。
 
-> 当前版本 **0.6.0**（**行为变更**：`localIntegrations` 本机集成层——配置存在 = 守卫存在；无配置 = 该守卫在代码路径上不存在，详见「本机集成（可选）」节；**0.6.0 迁移示例见该节**）。本插件面向"规则机器化执行"：规则写在 AGENTS.md 里，引擎负责让它们真的被遵守；所有规则动态解析，规则增删改后无需重写插件。
+> 当前版本 **0.6.1**（release-plugin 豁免预插：bump 后自动追加 pnpm minimumReleaseAgeExclude（⑬ 口径防发布后红灯窗口——踩坑 18 镜像）；豁免判定单源化（scripts/lib/pnpm-exempt.mjs，与 verify-all ⑬ 共享）；0.6.0 行为变更：`localIntegrations` 本机集成层——配置存在 = 守卫存在；无配置 = 该守卫在代码路径上不存在，详见「本机集成（可选）」节）。本插件面向"规则机器化执行"：规则写在 AGENTS.md 里，引擎负责让它们真的被遵守；所有规则动态解析，规则增删改后无需重写插件。
 
 ## 项目背景
 
@@ -97,6 +97,7 @@ DSH 规则执行引擎 v3 的插件实现。它把 `~/.dsh/AGENTS.md` 当作唯�
 
 | 版本 | 日期 | 要点 |
 |---|---|---|
+| **0.6.1** | 2026-09-07 | **B 档发布**：豁免预插（release-plugin bump 后自动追加 minimumReleaseAgeExclude——⑬ 口径防发布后红灯窗口）；豁免判定单源化（scripts/lib/pnpm-exempt.mjs 与 verify-all ⑬ 共享 + 4 单测）；viewFails 发布语境 STRICT 计 ❌；⑬ 头注释绝对口径 |
 | **0.6.0** | 2026-09-04 | **行为变更**：通用与本机分离——`localIntegrations` 本机集成层（entryScript/protectedFiles/m8/manualExempt 四键）；此前默认强制的守卫（统一入口阶段 C / 手册/技能豁免 / M8 双通道）改为"配置存在=守卫存在、无配置=代码路径上不存在"；`m8` 语义反转（默认开启→显式开启）；消号本机痕迹（lib/ 零命中，词表唯一源 `scripts/local-residue-markers.txt`） |
 | **0.5.14** | 2026-09-01 | 分点三柱（条件句零授权/显式命名对象锚定/clauseId 隔离）+ skill 词收紧 + 规则 5 引证检测扩展（内部引用无依据→审计注入）+ 规则 31 查证纪律（B+D）+ README 版本四性对齐 |
 | **0.5.17** | 2026-09-03 | A1 规则 2 时间词拆组（当下词=Get-Date① / 历史日期=证据锚②，消除"引用历史日期必判未核对"误报）+ EVIDENCE_MARK_RE 增证据锚（commit hash/版本行/踩坑 N/版本记录） |
@@ -113,7 +114,8 @@ DSH 规则执行引擎 v3 的插件实现。它把 `~/.dsh/AGENTS.md` 当作唯�
 
 ## 发行固定源
 
-- **0.6.0（当前）** 固定于 main Commit `be5b8c93`（`git checkout be5b8c93` 可复现 npm `dsh-rule-engine@0.6.0` 与 GitHub Release v0.6.0 同源代码——0.6.0 = 本机集成层（localIntegrations 四键）+ 本机痕迹消号 + li-skipped/entry-script-missing 启动审计 + 发布门禁 B1/B2（readme-version-check / local-residue-scan，挂 verify-all/release-plugin/check:meta）+ check-tool-coverage 素材 fail-closed（第三方反馈润色：通用指引+配置注入本机提示）；词表文件 `scripts/local-residue-markers.txt` 为本机门禁工具，不入库、不进发布物（见 .gitignore / package.json files 排除）。固定源之后的提交仅限 README 指针文本）。
+- **0.6.1（当前）** 固定于 main Commit `051e2da`（`git checkout 051e2da` 可复现 npm `dsh-rule-engine@0.6.1` 与 GitHub Release v0.6.1 同源代码——0.6.1 = 豁免预插（release-plugin bump 后自动追加 pnpm minimumReleaseAgeExclude，⑬ 绝对口径防发布后红灯窗口——踩坑 18 镜像）+ 豁免判定单源化（scripts/lib/pnpm-exempt.mjs 与 verify-all ⑬ 共享，4 单测锁定）+ viewFails 发布语境 STRICT 计 ❌ + ⑬ 块头注释绝对口径（E1/E2/E3 收尾批）。
+- **0.6.0** 固定于 main Commit `be5b8c93`（可复现 `dsh-rule-engine@0.6.0` 与 Release v0.6.0——0.6.0 = 本机集成层（localIntegrations 四键）+ 本机痕迹消号 + li-skipped/entry-script-missing 启动审计 + 发布门禁 B1/B2（readme-version-check / local-residue-scan，挂 verify-all/release-plugin/check:meta）+ check-tool-coverage 素材 fail-closed；词表文件 `scripts/local-residue-markers.txt` 为本机门禁工具，不入库、不进发布物（见 .gitignore / package.json files 排除）。固定源之后的提交仅限 README 指针文本）。
 
 ## 任务契约与反过度工程（可选）
 
