@@ -152,8 +152,8 @@ step("发布门禁 B2（lib/ 本机痕迹扫描——词表唯一源，命中即
   }
 }
 
-// ── ⑬ pnpm 豁免校验（批次四 04 1.1 B1 口径：npm 已发布版本 ∖ 豁免名单 = ∅；
-//    link 装配豁免——四包当前 version 必须 ∈ minimumReleaseAgeExclude 或 link——防"发布后首装静默装旧版"）──
+// ── ⑬ pnpm 豁免校验（批次四 04 1.1 B1 口径；E-56 修活后为真跑校验：npm 已发布 latest 必须 ∈ minimumReleaseAgeExclude；
+//    绝对口径（12.4/13.2 裁定）：**link 装配不豁免**——四包 npm latest 必须 ∈ 豁免名单（防未来转非 link 装配踩坑 18）──
 {
   try {
     const dshHome = process.env.DSH_HOME || join(process.env.USERPROFILE || "", ".dsh");
@@ -187,8 +187,14 @@ step("发布门禁 B2（lib/ 本机痕迹扫描——词表唯一源，命中即
         if (ver && !exempt(p, ver)) misses.push(`${p}@${ver}（本机版未豁免）`);
       }
     }
-    if (process.env.VERIFY_ALL_TESTMODE === "1") misses.push("TESTMODE 合成 miss（门禁活性自证——必须转红）");
-    if (viewFails.length) lines.push(`⚠️ pnpm 豁免校验：npm view 执行失败 ${viewFails.length} 包（${viewFails.join("、")}）——latest 未获取（fail-closed：未完成≠通过；Windows 走 npm.cmd+shell 分支）`);
+    if (process.env.VERIFY_ALL_TESTMODE === "1") { misses.push("TESTMODE 合成 miss（门禁活性自证——必须转红）"); viewFails.push("TESTMODE-合成"); }
+    if (viewFails.length) {
+      // E2：发布语境（VERIFY_ALL_STRICT=1，release-plugin 3.7 设置）viewFails>0 计 ❌（fail-closed）；本地默认 ⚠️ 可见+抑制 ✅
+      const strictFail = process.env.VERIFY_ALL_STRICT === "1";
+      lines.push(strictFail
+        ? `❌ pnpm 豁免校验：npm view 执行失败 ${viewFails.length} 包（${viewFails.join("、")}）——发布语境 fail-closed（latest 未获取即阻断）`
+        : `⚠️ pnpm 豁免校验：npm view 执行失败 ${viewFails.length} 包（${viewFails.join("、")}）——latest 未获取（fail-closed：未完成≠通过）`);
+    }
     if (misses.length) {
       lines.push(`❌ pnpm 豁免校验：${misses.join("、")} 不在 minimumReleaseAgeExclude（发布后首装会被静默跳过——见踩坑 18）`);
     } else if (!viewFails.length) {
