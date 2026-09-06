@@ -165,11 +165,19 @@ step("发布门禁 B2（lib/ 本机痕迹扫描——词表唯一源，命中即
     for (const p of fourPkgs) {
       const spec = profPkg.dependencies?.[p];
       if (!spec) continue;
-      if (typeof spec === "string" && spec.startsWith("link:")) continue; // link 装配不受保护期约束
-      const ver = pkgVerLocal(p);
-      if (!ver) continue;
+      const isLink = typeof spec === "string" && spec.startsWith("link:");
       const esc = p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      if (!new RegExp(`${esc}@${ver}`).test(wsYaml)) misses.push(`${p}@${ver}`);
+      // ⑬ 强校验（12.4 修法绝对口径）：npm 已发布 latest 必须 ∈ 豁免名单——**不因 link 装配豁免**
+      //（link 包其 npm 已发布版本仍须豁免——防未来转非 link 装配时踩坑 18）；本机版校验仅非 link 执行
+      let latest = null;
+      try { latest = execFileSync("npm", ["view", p, "version"], { encoding: "utf8", stdio: "pipe" }).trim(); } catch { latest = null; }
+      if (latest && !new RegExp(`${esc}@${latest.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`).test(wsYaml)) {
+        misses.push(`${p}@${latest}（npm latest 未豁免）`);
+      }
+      if (!isLink) {
+        const ver = pkgVerLocal(p);
+        if (ver && !new RegExp(`${esc}@${ver}`).test(wsYaml)) misses.push(`${p}@${ver}（本机版未豁免）`);
+      }
     }
     if (misses.length) {
       lines.push(`❌ pnpm 豁免校验：${misses.join("、")} 不在 minimumReleaseAgeExclude（发布后首装会被静默跳过——见踩坑 18）`);
