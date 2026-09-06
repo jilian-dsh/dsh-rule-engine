@@ -15,6 +15,7 @@ import { execFileSync } from "node:child_process";
 import { readdirSync, statSync, readFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { exemptPkg } from "./lib/pnpm-exempt.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const lines = [];
@@ -163,8 +164,8 @@ step("发布门禁 B2（lib/ 本机痕迹扫描——词表唯一源，命中即
     const fourPkgs = ["dsh-rule-engine", "dsh-rules-manager", "dsh-rules-manager-client", "dsh-rule-engine-client"];
     const misses = [];
     const viewFails = [];
-    // 豁免判定：行含包名（pkg@），版本段任一匹配（yaml 支持 `pkg@1.5.3 || 1.5.4` 形态——段可带/不带包名前缀）
-    const exempt = (p, v) => wsYaml.split(/\r?\n/).some((l) => l.includes(`${p}@`) && l.split(/\s*\|\|\s*/).some((tok) => { const t = tok.trim().replace(/^-\s*/, ""); return t === v || t === `${p}@${v}`; }));
+    // 豁免判定（单源：scripts/lib/pnpm-exempt.mjs——与 release-plugin 预插共享；一致性测试锁）
+    const exempt = (p, v) => exemptPkg(wsYaml, p, v);
     for (const p of fourPkgs) {
       const spec = profPkg.dependencies?.[p];
       if (!spec) continue;
