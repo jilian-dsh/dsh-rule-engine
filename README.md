@@ -1,11 +1,11 @@
 # dsh-rule-engine
 
 ![npm](https://img.shields.io/npm/v/dsh-rule-engine)
-![version](https://img.shields.io/badge/version-0.6.1-blue)
+![version](https://img.shields.io/badge/version-0.6.2-blue)
 
 DSH 规则执行引擎 v3 的插件实现。它把 `~/.dsh/AGENTS.md` 当作唯一真相源，自动解析规则四要素与执行等级，再通过「工具守卫 + 文本检测 + 时序检查 + 审计台账」执行用户规则，而不是内置一套与用户无关的安全清单。
 
-> 当前版本 **0.6.1**（release-plugin 豁免预插：bump 后自动追加 pnpm minimumReleaseAgeExclude（⑬ 口径防发布后红灯窗口——踩坑 18 镜像）；豁免判定单源化（scripts/lib/pnpm-exempt.mjs，与 verify-all ⑬ 共享）；0.6.0 行为变更：`localIntegrations` 本机集成层——配置存在 = 守卫存在；无配置 = 该守卫在代码路径上不存在，详见「本机集成（可选）」节）。本插件面向"规则机器化执行"：规则写在 AGENTS.md 里，引擎负责让它们真的被遵守；所有规则动态解析，规则增删改后无需重写插件。
+> 当前版本 **0.6.2**（0.1.2-rc.1 适配：Remote 新合同（typert-protocol `Remote(undefined, …)` 形态，typeof-null 陷阱修复）+ peer 锚扩 `>=0.1.2-rc.0`；白名单 3 轮扩充（gh 只读态 / `gh api` 只读 / `git ls-remote` / `cmdkey /list` + Do- 结构词回归修复）；E7 豁免预插（release-plugin bump 后自动追加 pnpm minimumReleaseAgeExclude——⑬ 口径防发布后红灯窗口，单源 `scripts/lib/pnpm-exempt.mjs`））。本插件面向"规则机器化执行"：规则写在 AGENTS.md 里，引擎负责让它们真的被遵守；所有规则动态解析，规则增删改后无需重写插件。
 
 ## 项目背景
 
@@ -96,6 +96,7 @@ DSH 规则执行引擎 v3 的插件实现。它把 `~/.dsh/AGENTS.md` 当作唯�
 > 更早版本（0.1.0-0.5.5）与本机历史要点见 git 历史；各版本内部"用户定稿"等决策细节不再随发布物携带。
 
 | 版本 | 日期 | 要点 |
+| **0.6.2** | 2026-09-08 | fix(0.6.2): whitelist 3-round + 0.1.2 adaptation + peer-anchor 0.1.2 + E7 pre-plug wiring  |
 |---|---|---|
 | **0.6.1+（本地增强，未发版）** | 2026-09-07 | 只读豁免清单扩充（用户定调"纯只读顺畅"）：`gh api` 只读态（无 -X/--method/graphql/-F/-f 的段）、`gh release/issue/pr/run view`、`cmdkey /list`、`git ls-remote` 显式；写形态（gh api -F/graphql、git fetch、curl 下载、重定向落盘）保持拦截；26 用例全绿 + 语法体检 + 热重载生效（发版需 bump 0.6.2） |
 | **0.6.1** | 2026-09-07 | **B 档发布**：豁免预插（release-plugin bump 后自动追加 minimumReleaseAgeExclude——⑬ 口径防发布后红灯窗口）；豁免判定单源化（scripts/lib/pnpm-exempt.mjs 与 verify-all ⑬ 共享 + 4 单测）；viewFails 发布语境 STRICT 计 ❌；⑬ 头注释绝对口径 |
@@ -115,6 +116,7 @@ DSH 规则执行引擎 v3 的插件实现。它把 `~/.dsh/AGENTS.md` 当作唯�
 
 ## 发行固定源
 
+- **0.6.2（当前）** 固定于 main Commit `89b165c`（`git checkout 89b165c` + 发布 bump 可复现 npm `dsh-rule-engine@0.6.2` 与 GitHub Release v0.6.2 同源代码——0.6.2 = 0.1.2-rc.1 适配（Remote 新合同 `Remote(undefined, …)` / peer 锚扩 `>=0.1.2-rc.0`）+ 白名单 3 轮扩充 + Do- 结构词回归修复 + E7 豁免预插机制上线）。
 - **0.6.1（当前）** 固定于 main Commit `051e2da`（`git checkout 051e2da` 可复现 npm `dsh-rule-engine@0.6.1` 与 GitHub Release v0.6.1 同源代码——0.6.1 = 豁免预插（release-plugin bump 后自动追加 pnpm minimumReleaseAgeExclude，⑬ 绝对口径防发布后红灯窗口——踩坑 18 镜像）+ 豁免判定单源化（scripts/lib/pnpm-exempt.mjs 与 verify-all ⑬ 共享，4 单测锁定）+ viewFails 发布语境 STRICT 计 ❌ + ⑬ 块头注释绝对口径（E1/E2/E3 收尾批）。
 - **0.6.0** 固定于 main Commit `be5b8c93`（可复现 `dsh-rule-engine@0.6.0` 与 Release v0.6.0——0.6.0 = 本机集成层（localIntegrations 四键）+ 本机痕迹消号 + li-skipped/entry-script-missing 启动审计 + 发布门禁 B1/B2（readme-version-check / local-residue-scan，挂 verify-all/release-plugin/check:meta）+ check-tool-coverage 素材 fail-closed；词表文件 `scripts/local-residue-markers.txt` 为本机门禁工具，不入库、不进发布物（见 .gitignore / package.json files 排除）。固定源之后的提交仅限 README 指针文本）。
 
