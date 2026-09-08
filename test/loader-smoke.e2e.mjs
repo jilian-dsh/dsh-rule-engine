@@ -22,7 +22,7 @@ const home = mkdtempSync(join(tmpdir(), "dsh-re-smoke-"));
 process.env.DSH_HOME = home;
 
 const { state } = await import("../lib/core/runtime.js");
-const { handleSessionEvent } = await import("../lib/index.js");
+const { handleSessionEvent, criticismFreezeDecision } = await import("../lib/index.js");
 const { guardDecision } = await import("../lib/core/guard-core.js");
 
 state.lastMtimeCheck = Date.now() + 3600_000; // 屏蔽文件热重载（自包含）
@@ -119,6 +119,18 @@ const wl = JSON.parse(readFileSync(join(home, "rule-engine-tools.json"), "utf8")
 assert.ok(Array.isArray(wl) && wl.some((r) => r.name === "future_tool_e2e" && typeof r.time === "number" && r.session === SID), "E：白名单落盘 v2（对象数组，带 time/session 元数据）");
 assert.ok(state.unknownToolApproved?.has("future_tool_e2e"), "E：会话白名内存态生效");
 assert.ok(state.unknownToolSessionAdded?.has("future_tool_e2e"), "E：本会话新增标记（/guard tools 可区分）");
+
+// ── F. §1.3 行为闸（2026-09-08 第二批 A″）：批评疑似回合 → 写类工具冻结（真实纯函数调用）──
+{
+  const frozen = { turn: { criticismFrozen: true, criticismSuspect: "strong" } };
+  assert.ok(criticismFreezeDecision(frozen, "write", {}), "F：批评回合 write 被冻结");
+  assert.ok(criticismFreezeDecision(frozen, "pwsh", { command: "Set-Content f.txt x" }), "F：批评回合 pwsh（写命令）被冻结");
+  assert.equal(criticismFreezeDecision(frozen, "pwsh", { command: "Get-Content f.txt" }), null, "F：批评回合 pwsh（只读命令）不受限");
+  assert.ok(String(criticismFreezeDecision(frozen, "write", {})).includes("四段模板"), "F：拒绝原因含四段模板指引");
+  assert.equal(criticismFreezeDecision(frozen, "read", {}), null, "F：只读工具不受限");
+  assert.equal(criticismFreezeDecision({ turn: {} }, "write", {}), null, "F：普通回合 write 不受限");
+  assert.equal(criticismFreezeDecision({ turn: { criticismFrozen: true } }, "grep", {}), null, "F：批评回合 grep 不受限");
+}
 
 // ── 外部世界断言：审计 JSONL 真实存在对应记录 ──
 const log = readFileSync(join(home, "rule-engine.log.jsonl"), "utf8");

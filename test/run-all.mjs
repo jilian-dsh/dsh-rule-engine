@@ -19,6 +19,8 @@ const tests = [
   "./llm-intent.test.mjs",
   "./session-event.test.mjs",
   "./state.test.mjs",
+  "./audit.test.mjs",
+  "./release-plugin.test.mjs",
   "./contract.test.mjs",
   "./overengineering.test.mjs",
   "./task-contract-guard.test.mjs",

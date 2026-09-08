@@ -1,0 +1,10 @@
+{
+  "profile": "web",
+  "plugins": [
+    {
+      "name": "dsh-rule-engine",
+      "dir": ".",
+      "repo": "jilian-dsh/dsh-rule-engine"
+    }
+  ]
+}

@@ -163,6 +163,10 @@ if (dryRun) {
     const replaced = t.replaceAll(oldBadgeVer, nextUrl).replaceAll(oldBadgeUrl, nextUrl);
     console.log(`[DRY-RUN] README 徽章将变为: ${replaced.match(/version-[^\s]+/)?.[0] || "(未命中，检查徽章形态)"}`);
   }
+  // §1.2（2026-09-08）dry-run 可观测项（单测锚点）
+  console.log(`[DRY-RUN] plugins.json 条目: ${entry ? `${entry.name} (dir=${entry.dir})` : "(未命中——将回退目录路径参数)"}`);
+  console.log(`[DRY-RUN] dist-tags 轮询: ${Math.max(30, Number(process.env.RELEASE_DIST_TAG_POLL_SEC) || 180)}s（RELEASE_DIST_TAG_POLL_SEC 可配）`);
+  console.log(`[DRY-RUN] README 四点同步: 徽章 / 正文当前版本 / 历史表新行 / 固定源占位注释`);
   process.exit(0);
 }
 writeFileSync(pkgPath, readFileSync(pkgPath, "utf8").replace(`"version": "${oldVer}"`, `"version": "${nextVer}"`));
@@ -182,7 +186,19 @@ for (const readme of ["README.md", "README.en.md"]) {
     if (replaced !== text) writeFileSync(rp, replaced);
   }
 }
-console.log("版本已 bump（package.json + README 徽章）");
+// §1.2-②（2026-09-08 第二批）：README 正文"当前版本"行同步 + 固定源占位注释（发布后回填锚点，可 grep）
+for (const readme of ["README.md", "README.en.md"]) {
+  const rp = join(dir, readme);
+  if (!existsSync(rp)) continue;
+  let rtxt = readFileSync(rp, "utf8");
+  const before = rtxt;
+  rtxt = rtxt.replace(/(> 当前版本 \*\*)\d+\.\d+\.\d+(\*\*)/, `$1${nextVer}$2`);
+  if (readme === "README.md" && rtxt.includes("## 发行固定源") && !rtxt.includes("<!-- fixed-source:")) {
+    rtxt = rtxt.replace("## 发行固定源", "## 发行固定源\n\n<!-- fixed-source: 待发布回填 -->");
+  }
+  if (rtxt !== before) writeFileSync(rp, rtxt);
+}
+console.log("版本已 bump（package.json + README 徽章 + 正文当前版本 + 固定源占位）");
 
 // B1（2026-09-03）：README 版本表行自动插入（阶段 C 人脑核对已失效的自动化；幂等：已存在 nextVer 行则跳过）
 // 位置：版本表（| 版本 | 日期 | 要点 |）表头后第一数据行之前（最新在上）；内容用调用方 notes 参数或 git log 最近提交信息
@@ -273,16 +289,18 @@ run(`cd /d "${dir}" && ${proxyPrefix()}npm publish ${tgz}`);
 // B1（2026-09-03）：publish 后校验 registry dist-tags（0.5.16 事故：publish 自报成功但 latest 未切；
 // 脚本此前只跑 publish 不校验发布态——三通道验证铁律：npm 通道以 dist-tags 为准，self-report 不算数）
 // B1 v2（2026-09-03 同日晚）：registry 传播以分钟计，publish 后立即校验曾误报中止（0.5.17 实弹）→
-// 轮询重试 60s（6×10s）；仍不符才中止，并按"版本是否已落盘"给出人工修正路径
-console.log("\n=== npm 发布态校验（dist-tags，轮询最多 60s）===");
+// §1.2-③（2026-09-08 第二批）：轮询 60s→180s（本机首次传播实测 >60s）；RELEASE_DIST_TAG_POLL_SEC 可配（下限 30）
+const pollSec = Math.max(30, Number(process.env.RELEASE_DIST_TAG_POLL_SEC) || 180);
+const attempts = Math.ceil(pollSec / 10);
+console.log(`\n=== npm 发布态校验（dist-tags，轮询最多 ${pollSec}s / ${attempts} 次）===`);
 function sleepMs(ms) { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); }
 const queryTags = () => quiet(`cd /d "${dir}" && ${proxyPrefix()}npm view ${name} dist-tags.latest`);
 const queryVer = () => quiet(`cd /d "${dir}" && ${proxyPrefix()}npm view ${name}@${nextVer} version`);
 let latestActual = "";
-for (let i = 0; i < 6; i++) {
+for (let i = 0; i < attempts; i++) {
   latestActual = queryTags();
   if (latestActual === nextVer) break;
-  if (i < 5) { console.log(`  [B1] 等待 registry 传播（${i + 1}/5，latest=${latestActual || "(空)"}）…`); sleepMs(10000); }
+  if (i < attempts - 1) { console.log(`  [B1] 等待 registry 传播（${i + 1}/${attempts - 1}，latest=${latestActual || "(空)"}）…`); sleepMs(10000); }
 }
 if (latestActual !== nextVer) {
   const verExists = queryVer() === nextVer;

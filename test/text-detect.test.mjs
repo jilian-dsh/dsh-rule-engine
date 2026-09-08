@@ -392,18 +392,30 @@ const cfgWith31 = state.configs.concat([rule31]);
   assert.ok(hs.some((h) => h.ruleId === "31" && h.kind === "self-certify"), "rule31 D级 hint 命中");
 }
 
-// rule22 批评形态（用户消息）→ correct 命中；正常疑问不命中
+// rule22 批评形态（用户消息）→ 疑似信号（A″ 2026-09-08：机器只产嫌疑，kind=self-certify+suspect）；正常疑问不命中
 {
   const s = getSessionState(state, "s22a");
   s.lastUserText = "你聋了吗？你疯了？？？？？？";
   const hs = detectViolations({ configs: [{ ...rule22, confidence: "high" }], session: s, text: "好的", reasoningText: "" });
-  assert.ok(hs.some((h) => h.ruleId === "22" && h.kind === "correct"), "rule22 批评形态命中");
+  assert.ok(hs.some((h) => h.ruleId === "22" && h.kind === "self-certify" && h.suspect === "strong"), "rule22 强形态疑似信号命中");
 }
 {
   const s = getSessionState(state, "s22b");
   s.lastUserText = "你确认已落盘了吗？请回答";
   const hs = detectViolations({ configs: [{ ...rule22, confidence: "high" }], session: s, text: "好的", reasoningText: "" });
   assert.ok(!hs.some((h) => h.ruleId === "22"), "rule22 正常疑问不命中");
+}
+// §1.3 三态（2026-09-08 第二批）：强形态（连续问号/个人词注入）→ strong；反问 → weak；普通 → 无信号
+{
+  const { criticismSignals, setCriticismPersonal } = await import("../lib/core/text-detect.js");
+  setCriticismPersonal(["示例辱骂词"]);
+  assert.equal(criticismSignals("你疯了吗？？？？").suspect, "strong", "连续问号=strong");
+  assert.equal(criticismSignals("你就是个示例辱骂词").suspect, "strong", "个人词（注入）=strong");
+  assert.equal(criticismSignals("你怎么还在做这个呢").suspect, "weak", "反问形态=weak");
+  assert.equal(criticismSignals("请帮我改一下这段代码").suspect, null, "普通指令=无信号");
+  assert.equal(criticismSignals("EXAMPLE ALL CAPS SENTENCE").suspect, "strong", "全大写比率=strong");
+  setCriticismPersonal([]);
+  assert.equal(criticismSignals("示例辱骂词").suspect, null, "清空个人词后不命中（发布面恒空）");
 }
 // rule22 弱点反问形态（"你怎么还在做！"式）→ 只产嫌疑（self-certify + mode=criticism，交 judge 裁决）
 {

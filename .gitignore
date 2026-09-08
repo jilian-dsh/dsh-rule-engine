@@ -4,6 +4,7 @@ node_modules/
 # 分析临时区与 codegraph 索引（不入库）
 logs/
 .codegraph/
+.zvec-grep/
 .DS_Store
 .backups/
 test/*.bak

@@ -116,7 +116,7 @@ DSH 规则执行引擎 v3 的插件实现。它把 `~/.dsh/AGENTS.md` 当作唯�
 
 ## 发行固定源
 
-- **0.6.2（当前）** 固定于 main Commit `92da194`（`git checkout 92da194` 可复现 npm `dsh-rule-engine@0.6.2` 与 GitHub Release v0.6.2 同源代码——0.6.2 = 0.1.2-rc.1 适配（Remote 新合同 `Remote(undefined, …)` / peer 锚扩 `>=0.1.2-rc.0`）+ 白名单 3 轮扩充 + Do- 结构词回归修复 + E7 豁免预插机制上线）。
+- **0.6.2（当前）** 固定于 main Commit `92da194538fce2f56fa7c6712c70711865772686`（`git checkout 92da194538fce2f56fa7c6712c70711865772686` 可复现 npm `dsh-rule-engine@0.6.2` 与 GitHub Release v0.6.2 同源代码——0.6.2 = 0.1.2-rc.1 适配（Remote 新合同 `Remote(undefined, …)` / peer 锚扩 `>=0.1.2-rc.0`）+ 白名单 3 轮扩充 + Do- 结构词回归修复 + E7 豁免预插机制上线）。
 - **0.6.1** 固定于 main Commit `051e2da`（`git checkout 051e2da` 可复现 npm `dsh-rule-engine@0.6.1` 与 GitHub Release v0.6.1 同源代码——0.6.1 = 豁免预插（release-plugin bump 后自动追加 pnpm minimumReleaseAgeExclude，⑬ 绝对口径防发布后红灯窗口——踩坑 18 镜像）+ 豁免判定单源化（scripts/lib/pnpm-exempt.mjs 与 verify-all ⑬ 共享，4 单测锁定）+ viewFails 发布语境 STRICT 计 ❌ + ⑬ 块头注释绝对口径（E1/E2/E3 收尾批）。
 - **0.6.0** 固定于 main Commit `be5b8c93`（可复现 `dsh-rule-engine@0.6.0` 与 Release v0.6.0——0.6.0 = 本机集成层（localIntegrations 四键）+ 本机痕迹消号 + li-skipped/entry-script-missing 启动审计 + 发布门禁 B1/B2（readme-version-check / local-residue-scan，挂 verify-all/release-plugin/check:meta）+ check-tool-coverage 素材 fail-closed；词表文件 `scripts/local-residue-markers.txt` 为本机门禁工具，不入库、不进发布物（见 .gitignore / package.json files 排除）。固定源之后的提交仅限 README 指针文本）。
 
