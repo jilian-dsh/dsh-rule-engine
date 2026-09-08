@@ -97,6 +97,7 @@ DSH 规则执行引擎 v3 的插件实现。它把 `~/.dsh/AGENTS.md` 当作唯�
 
 | 版本 | 日期 | 要点 |
 |---|---|---|
+| **0.6.1+（本地增强，未发版）** | 2026-09-07 | 只读豁免清单扩充（用户定调"纯只读顺畅"）：`gh api` 只读态（无 -X/--method/graphql/-F/-f 的段）、`gh release/issue/pr/run view`、`cmdkey /list`、`git ls-remote` 显式；写形态（gh api -F/graphql、git fetch、curl 下载、重定向落盘）保持拦截；26 用例全绿 + 语法体检 + 热重载生效（发版需 bump 0.6.2） |
 | **0.6.1** | 2026-09-07 | **B 档发布**：豁免预插（release-plugin bump 后自动追加 minimumReleaseAgeExclude——⑬ 口径防发布后红灯窗口）；豁免判定单源化（scripts/lib/pnpm-exempt.mjs 与 verify-all ⑬ 共享 + 4 单测）；viewFails 发布语境 STRICT 计 ❌；⑬ 头注释绝对口径 |
 | **0.6.0** | 2026-09-04 | **行为变更**：通用与本机分离——`localIntegrations` 本机集成层（entryScript/protectedFiles/m8/manualExempt 四键）；此前默认强制的守卫（统一入口阶段 C / 手册/技能豁免 / M8 双通道）改为"配置存在=守卫存在、无配置=代码路径上不存在"；`m8` 语义反转（默认开启→显式开启）；消号本机痕迹（lib/ 零命中，词表唯一源 `scripts/local-residue-markers.txt`） |
 | **0.5.14** | 2026-09-01 | 分点三柱（条件句零授权/显式命名对象锚定/clauseId 隔离）+ skill 词收紧 + 规则 5 引证检测扩展（内部引用无依据→审计注入）+ 规则 31 查证纪律（B+D）+ README 版本四性对齐 |

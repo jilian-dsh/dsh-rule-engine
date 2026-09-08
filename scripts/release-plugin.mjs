@@ -15,6 +15,7 @@ import { execSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync, mkdirSync, copyFileSync, statSync, rmSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { ensureExempt } from "./lib/pnpm-exempt.mjs";
 
 const PROXY = process.env.DSH_RELEASE_PROXY || ""; // 默认直连；需要代理时显式设置
 /** 代理前缀（命令文本）：空 = 直连 */
@@ -235,6 +236,17 @@ if (judgeScan) {
   run(`node "${judgeScan}" --root "${dir}"`);
 } else {
   console.log("（未设置 JUDGE_SCAN——判据库回归跳过（本机增强门禁，建议发布前设置））");
+}
+
+// ── 3.8 豁免预插（E7，2026-09-08 接线；单源 scripts/lib/pnpm-exempt.mjs）：bump 后 publish 前，
+// 把 nextVer 自动预插 profiles/web pnpm-workspace.yaml 的 minimumReleaseAgeExclude——⑬ 绝对口径
+// 要求"publish 后 latest ∈ 豁免名单"，预插保证该不变式由发布器维护（防手工遗忘 → 发布后 ⑬ 红）。
+// 幂等（已存在跳过）；DRY-RUN 只打印；yaml 读取失败抛错中止发布（fail-closed）。──
+{
+  const dshHome = process.env.DSH_HOME || join(process.env.USERPROFILE || "", ".dsh");
+  const yamlPath = join(dshHome, "profiles", "web", "pnpm-workspace.yaml");
+  console.log("\n=== 豁免预插（minimumReleaseAgeExclude ← nextVer）===");
+  ensureExempt(yamlPath, name, nextVer, { dryRun: !!process.env.DRY_RUN, log: console.log });
 }
 
 // ── 4. pack + publish ────────────────────────────────────────────
