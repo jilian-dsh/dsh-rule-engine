@@ -38,7 +38,9 @@ function parseNames() {
     if (!cols[2] || !cols[2].startsWith("@deepseek-ai")) continue;
     const add = (s) => {
       if (!s || s === "-") return;
-      for (const x of s.split(",")) {
+      // 分隔符：英文文档用逗号「,」，中文文档用顿号「、」（0.6.3 修复：曾只按逗号分割，
+      // 致中文素材的多工具名整串被丢弃——59 个工具名只剩 11 个，且仍打印 COVERAGE-OK 的静默弱化）
+      for (const x of s.split(/[,、，]/)) {
         const n = x.trim();
         if (/^[A-Za-z_][A-Za-z0-9_:.-]*$/.test(n)) names.add(n);
       }
