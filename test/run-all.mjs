@@ -105,7 +105,11 @@ const tests = [
   // 第三批第 1 波收尾（2026-09-09）：dualtrack --init 覆盖保护（子进程 CLI 断言，不 import index.js）——固定末尾
   "./dualtrack-init-guard.test.mjs",
   // 第三批第 1 波收尾（2026-09-09）：工具目录分隔符兼容（中文顿号/英文逗号，子进程 CLI）——固定末尾
-  "./tool-catalog-separator.test.mjs"
+  "./tool-catalog-separator.test.mjs",
+  // 分层架构 v3 · P0（2026-09-10）：判据 D 规则号字面量门禁（--root 隔离夹具，子进程 CLI）——固定末尾
+  "./dualtrack-rule-literals.test.mjs",
+  // 分层架构 v3 · P1（2026-09-10）：措施类型注册表 + 旧名/kind 行为等价（纯函数）——固定末尾
+  "./measure-kinds.test.mjs"
 ];
 
 for (const t of tests) {

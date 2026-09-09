@@ -40,18 +40,18 @@ assert.equal(resolveHandler(genericRule), "", "resolveHandler 空层");
 
 // ② 声明层：正文内联声明优先于默认表（即使默认表无该编号）
 const declaredRule = { ...genericRule, body: genericRule.body + "\n<!-- handler: rule9-inline-bom -->" };
-assert.equal(understandRule(declaredRule).handler, "rule9-inline-bom", "内联声明生效(内部名)");
+assert.equal(understandRule(declaredRule).handler, "inline-command", "内联声明生效（旧内部名归一为 kind）");
 
-// ②b 语义名声明（残余3）：陌生用户可写语义名，自动归一为内部执行器名
+// ②b kind 名声明（架构 v3 P1）：陌生用户只写 kind 名，无需知道任何规则号
 const semanticDecl = { ...genericRule, body: genericRule.body + "\n<!-- handler: approval -->" };
-assert.equal(understandRule(semanticDecl).handler, "rule12a-approval", "语义名声明 approval → rule12a-approval");
-assert.equal(normalizeHandlerName("backup"), "rule13a-backup", "normalizeHandlerName 语义名");
-assert.equal(normalizeHandlerName("rule13a-backup"), "rule13a-backup", "normalizeHandlerName 内部名原样");
+assert.equal(understandRule(semanticDecl).handler, "approval", "kind 名声明 approval → kind approval");
+assert.equal(normalizeHandlerName("backup"), "backup", "normalizeHandlerName kind 名幂等");
+assert.equal(normalizeHandlerName("rule13a-backup"), "backup", "normalizeHandlerName 旧内部名 → kind");
 assert.equal(normalizeHandlerName("something-new"), "something-new", "normalizeHandlerName 未知名原样");
 
 // ① 覆盖层：handlerOverrides 优先于内联声明（兼容语义名/内部名归一）
 const overridden = understandRule(declaredRule, { handlerOverrides: { "R-1": "intent-direct" } });
-assert.equal(overridden.handler, "rule22-7-direct", "handlerOverrides 最高优先（语义名归一）");
+assert.equal(overridden.handler, "intent-direct", "handlerOverrides 最高优先（语义名归一为 kind）");
 
 // ③ 默认表层（残余1 剥离后）：代码层无默认表——兜底仅来自注入 defaultMap
 const noDefault = understandRule({
@@ -65,7 +65,7 @@ assert.equal(noDefault.handler, "", "剥离后无注入 → 纯自证（空 hand
 
 // defaultMap 注入（本机偏好下沉配置）：编号命中 → 兜底绑定；未命中 → 空
 const viaInjected = understandRule({ index: "1", title: "通用默认表样例（执行等级：A）", section: "通用分区", level: "A", body: "- **触发**：x。\n- **检查**：y。\n- **动作**：z。" }, { defaultMap: { "1": "rule1-retry" } });
-assert.equal(viaInjected.handler, "rule1-retry", "注入 defaultMap 兜底（本机偏好配置层）");
+assert.equal(viaInjected.handler, "retry", "注入 defaultMap 兜底（旧内部名归一为 kind）");
 const viaCustom = understandRule({ ...genericRule, index: "C-9" }, { defaultMap: { "C-9": "custom-handler" } });
 assert.equal(viaCustom.handler, "custom-handler", "defaultMap 可整体替换/清空");
 const viaEmptyMap = understandRule(genericRule, { defaultMap: {} });

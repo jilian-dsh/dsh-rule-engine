@@ -11,11 +11,20 @@
 //   —— 通用中文文案（字符串字面量内的 CJK）**不计入**：第三方判据明示「中文≠个人化，
 //      通用功能词/提示语是产品能力」。runtime 计数仍在 --report 里显示，供参考。
 //
+// 扫描判据 D（2026-09-10 分层架构 v3 · P0 追加）：规则号字面量
+//   依据：reports/2026-09-10-引擎分层架构-通用层零规则内容-v1.md §七。
+//   模式：rule\d+[A-Za-z]?-  /  byId\.get\("\d+"\)  /  \[guardian:rule\d+\]  /  rule-hint\.\d+
+//         /  ruleId\s*[=!]==?\s*"<N>"（2026-09-10 用户拍板纳入；§七 原列四条，此条据 §二 现状证据补入）
+//   为何单列一判据：「机制以规则号为骨架」比「文案含编号」更根本，且与判据 A 不同维度
+//   （A 抓本机私有词/映射键；D 抓通用层住着规则体系），故各自独立棘轮。
+//   口径：去注释后扫描（注释属开发溯源，非机制骨架）；不设白名单——代码层零规则号。
+//
 // 棘轮（ratchet）：基线记录各文件计数，只许降不许升。
 //   node scripts/dualtrack-check.mjs            # 比对基线（CI/发布门禁用）
 //   node scripts/dualtrack-check.mjs --init     # 首次生成基线
 //   node scripts/dualtrack-check.mjs --update   # 手动更新基线（须在提交说明里写清改了什么）
 //   node scripts/dualtrack-check.mjs --report   # 只打印各文件计数
+//   node scripts/dualtrack-check.mjs --root <dir>  # 改扫描根（仅测试隔离用；非默认根会显著提示）
 //
 // 白名单（scripts/dualtrack-whitelist.json）：
 //   files   —— 整文件豁免（如 lib/lang/**，第 3 批语言包）
@@ -26,7 +35,14 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadMarkers } from "../lib/core/dualtrack-markers.js";
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+// ── 命令行参数（提前解析：--root 必须在下面的路径常量之前生效）──
+const ARGV = process.argv.slice(2);
+const args = new Set(ARGV);
+const rootIdx = ARGV.indexOf("--root");
+const IS_CUSTOM_ROOT = rootIdx >= 0;
+const ROOT = IS_CUSTOM_ROOT && ARGV[rootIdx + 1]
+  ? path.resolve(ARGV[rootIdx + 1])
+  : path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const LIB = path.join(ROOT, "lib");
 const BASELINE_FILE = path.join(ROOT, "scripts", "dualtrack-baseline.json");
 const WHITELIST_FILE = path.join(ROOT, "scripts", "dualtrack-whitelist.json");
@@ -34,6 +50,15 @@ const RESIDUE_FILE = path.join(ROOT, "scripts", "local-residue-markers.txt");
 
 const CJK = /[\u4e00-\u9fff]/;
 const MAP_KEY_RE = /^\d+[A-Z]?$/;
+
+// ── 判据 D：规则号字面量（§七；口径=去注释后扫描，无白名单）──
+const RULE_LITERAL_PATTERNS = [
+  ["executor-name", /rule\d+[A-Za-z]?-/g, "内部执行器名 rule<N>[x]-"],
+  ["byid-get", /byId\.get\(\s*["'`]\d+["'`]\s*\)/g, '按规则号取规则 byId.get("<N>")'],
+  ["guardian-tag", /\[guardian:rule\d+\]/g, "对外文案 [guardian:rule<N>]"],
+  ["rule-hint", /rule-hint\.\d+/g, "rule-hint.<N>"],
+  ["ruleid-eq", /ruleId\s*[=!]==?\s*["'`]\d+[A-Za-z]?["'`]/g, '硬编码规则号比较 ruleId === "<N>"']
+];
 
 // ── 白名单 ──
 /** 白名单两层（2026-09-09）：包内通用白名单 + 本机 rule-engine.json 的 dualtrack.whitelist 合并。
@@ -75,6 +100,73 @@ function fileExempt(relPath, patterns) {
     if (re.test(relPath)) return true;
   }
   return false;
+}
+
+// ── 去注释（判据 D 用）：保留字符串/模板/正则原文，注释替换为空白（保持行结构） ──
+function stripComments(src) {
+  let out = "";
+  let i = 0;
+  const n = src.length;
+  let prevSig = "";
+  const push = (s) => { out += s; };
+  while (i < n) {
+    const c = src[i];
+    const c2 = src[i + 1];
+    if (c === "/" && c2 === "/") {
+      while (i < n && src[i] !== "\n") { push(" "); i++; }
+      continue;
+    }
+    if (c === "/" && c2 === "*") {
+      push("  "); i += 2;
+      while (i < n && !(src[i] === "*" && src[i + 1] === "/")) {
+        push(src[i] === "\n" ? "\n" : " ");
+        i++;
+      }
+      if (i < n) { push("  "); i += 2; }
+      continue;
+    }
+    if (c === '"' || c === "'" || c === "`") {
+      const q = c;
+      push(c); i++;
+      while (i < n) {
+        if (src[i] === "\\") { push(src[i] + (src[i + 1] || "")); i += 2; continue; }
+        push(src[i]);
+        if (src[i] === q) { i++; break; }
+        i++;
+      }
+      prevSig = "str";
+      continue;
+    }
+    // 正则字面量：仅在可能的正则位置整体复制（否则 / 是除号）
+    if (c === "/" && prevSig !== "ident" && prevSig !== ")" && prevSig !== "]" && prevSig !== "str") {
+      let j = i + 1;
+      let inClass = false;
+      let closed = false;
+      while (j < n) {
+        const ch = src[j];
+        if (ch === "\\") { j += 2; continue; }
+        if (ch === "\n") break;
+        if (ch === "[") inClass = true;
+        else if (ch === "]") inClass = false;
+        else if (ch === "/" && !inClass) { closed = true; break; }
+        j++;
+      }
+      if (closed) {
+        push(src.slice(i, j + 1));
+        i = j + 1;
+        while (i < n && /[a-z]/i.test(src[i])) { push(src[i]); i++; }
+        prevSig = "regex";
+        continue;
+      }
+    }
+    push(c);
+    if (/[A-Za-z0-9_$]/.test(c)) prevSig = "ident";
+    else if (c === ")") prevSig = ")";
+    else if (c === "]") prevSig = "]";
+    else if (!/\s/.test(c)) prevSig = "other";
+    i++;
+  }
+  return out;
 }
 
 // ── 词法扫描：剔除注释，收集字符串字面量与对象键 ──
@@ -203,6 +295,16 @@ function tokenize(src) {
 function scanFile(absPath, relPath, whitelist, residueMarks) {
   const src = fs.readFileSync(absPath, "utf8");
   const { strings, mapKeys } = tokenize(src);
+  // 判据 D：去注释后扫规则号字面量
+  const code = stripComments(src);
+  let ruleLiterals = 0;
+  const ruleLiteralHits = [];
+  for (const [id, re, desc] of RULE_LITERAL_PATTERNS) {
+    const m = code.match(re);
+    if (!m) continue;
+    ruleLiterals += m.length;
+    if (ruleLiteralHits.length < 3) ruleLiteralHits.push(`${id}×${m.length}（${desc}）如 ${m[0]}`);
+  }
   let runtime = 0;
   const runtimeHits = [];
   for (const s of strings) {
@@ -228,11 +330,13 @@ function scanFile(absPath, relPath, whitelist, residueMarks) {
     runtime,
     mapKeys: mapHits.length,
     local,
+    ruleLiterals,
     // 判据 A：total 只计「本机性」两类；通用中文文案（runtime）不计入闸
     total: mapHits.length + local,
     runtimeHits,
     mapHits: mapHits.slice(0, 5),
-    localHits
+    localHits,
+    ruleLiteralHits
   };
 }
 
@@ -247,7 +351,7 @@ function walk(dir, base = dir, out = []) {
 }
 
 // ── 主流程 ──
-const args = new Set(process.argv.slice(2));
+if (IS_CUSTOM_ROOT) console.log(`SCAN ROOT（非默认，仅测试隔离用）：${ROOT}\n`);
 const whitelist = loadWhitelist();
 // 本机标识词表：与 B2 扫描器共用唯一加载器（本机配置优先 → 环境变量 → 包内示例）
 const { markers: residueMarks, source: markersSource } = loadMarkers({ root: ROOT });
@@ -259,16 +363,22 @@ if (residueMarks.length === 0) {
 const files = walk(LIB).filter((rel) => !fileExempt(rel, whitelist.files));
 const results = files.map((rel) => scanFile(path.join(LIB, rel), rel, whitelist, residueMarks));
 const counts = {};
-for (const r of results) counts[`lib/${r.relPath}`] = r.total;
+const ruleCounts = {};
+for (const r of results) {
+  counts[`lib/${r.relPath}`] = r.total;
+  ruleCounts[`lib/${r.relPath}`] = r.ruleLiterals;
+}
 const grandTotal = results.reduce((a, r) => a + r.total, 0);
+const ruleGrandTotal = results.reduce((a, r) => a + r.ruleLiterals, 0);
 
 if (args.has("--report")) {
-  for (const r of results.sort((a, b) => b.total - a.total)) {
-    if (r.total === 0) continue;
-    console.log(`  ${String(r.total).padStart(4)}  lib/${r.relPath}  [映射键 ${r.mapKeys} / 本机标识 ${r.local} / 通用中文文案 ${r.runtime}（不计入闸）]`);
+  for (const r of results.sort((a, b) => (b.total + b.ruleLiterals) - (a.total + a.ruleLiterals))) {
+    if (r.total === 0 && r.ruleLiterals === 0) continue;
+    console.log(`  ${String(r.total).padStart(4)}  lib/${r.relPath}  [映射键 ${r.mapKeys} / 本机标识 ${r.local} / 通用中文文案 ${r.runtime}（不计入闸）] [规则号字面量 ${r.ruleLiterals}]`);
     if (r.mapHits.length) console.log(`        命中键：${r.mapHits.join(" / ")}`);
+    if (r.ruleLiteralHits.length) console.log(`        规则号字面量：${r.ruleLiteralHits.join("；")}`);
   }
-  console.log(`\nDUALTRACK REPORT：${results.length} 文件，合计 ${grandTotal}`);
+  console.log(`\nDUALTRACK REPORT：${results.length} 文件，判据 A（分层残留）合计 ${grandTotal}，判据 D（规则号字面量）合计 ${ruleGrandTotal}`);
   process.exit(0);
 }
 
@@ -287,13 +397,15 @@ if (args.has("--init") || args.has("--update")) {
   }
   const payload = {
     generatedAt: new Date().toISOString(),
-    note: "dualtrack 棘轮基线：各文件「分层残留」计数，只许降不许升。--init 首次生成，--update 手动更新（须在提交说明里写清改了什么）。",
+    note: "dualtrack 棘轮基线：各文件计数，只许降不许升。files/total=判据 A（分层残留）；ruleLiteralFiles/ruleLiteralsTotal=判据 D（规则号字面量）。--init 首次生成，--update 手动更新（须在提交说明里写清改了什么）。",
     total: grandTotal,
-    files: counts
+    files: counts,
+    ruleLiteralsTotal: ruleGrandTotal,
+    ruleLiteralFiles: ruleCounts
   };
   fs.writeFileSync(BASELINE_FILE, JSON.stringify(payload, null, 2) + "\n", "utf8");
   console.log(`${isUpdate ? "UPDATED" : "INITIALIZED"} ${BASELINE_FILE}`);
-  console.log(`基线合计：${grandTotal}（${Object.keys(counts).length} 个文件）`);
+  console.log(`基线：判据 A 合计 ${grandTotal}（${Object.keys(counts).length} 文件）／判据 D 合计 ${ruleGrandTotal}`);
   process.exit(0);
 }
 
@@ -324,12 +436,46 @@ for (const [file, b] of Object.entries(base)) {
   if (counts[file] === undefined && b > 0) improvements.push(`${file}: 文件已删除（基线 ${b}）`);
 }
 
-if (regressions.length > 0) {
-  console.error(`DUALTRACK FAIL：${regressions.length} 项超出基线（只许降不许升）`);
-  for (const r of regressions) console.error(`  ✗ ${r}`);
-  console.error("\n  处置：把新增内容迁个人层/配置层，或（确属通用功能词）登记 scripts/dualtrack-whitelist.json");
+// 判据 D 比对（独立棘轮；基线缺该维度 → fail-closed，提示 --update）
+const ruleBase = baseline.ruleLiteralFiles;
+const ruleRegressions = [];
+const ruleImprovements = [];
+if (!ruleBase || typeof ruleBase !== "object") {
+  ruleRegressions.push("基线缺「规则号字面量」维度（ruleLiteralFiles）——判据 D 于 2026-09-10 新增，请运行 --update 记录基线");
+} else {
+  for (const [file, count] of Object.entries(ruleCounts)) {
+    const b = ruleBase[file];
+    if (b === undefined) {
+      if (count > 0) ruleRegressions.push(`${file}: 新增文件含规则号字面量 ${count} 处（基线无此文件）`);
+      continue;
+    }
+    if (count > b) {
+      const r = results.find((x) => `lib/${x.relPath}` === file);
+      const detail = r ? r.ruleLiteralHits.slice(0, 2).join("；") : "";
+      ruleRegressions.push(`${file}: ${count} > 基线 ${b}${detail ? `（如：${detail}）` : ""}`);
+    } else if (count < b) {
+      ruleImprovements.push(`${file}: ${count} < 基线 ${b}`);
+    }
+  }
+  for (const [file, b] of Object.entries(ruleBase)) {
+    if (ruleCounts[file] === undefined && b > 0) ruleImprovements.push(`${file}: 文件已删除（基线 ${b}）`);
+  }
+}
+
+if (regressions.length > 0 || ruleRegressions.length > 0) {
+  if (regressions.length > 0) {
+    console.error(`DUALTRACK FAIL（判据 A 分层残留）：${regressions.length} 项超出基线（只许降不许升）`);
+    for (const r of regressions) console.error(`  ✗ ${r}`);
+  }
+  if (ruleRegressions.length > 0) {
+    console.error(`DUALTRACK FAIL（判据 D 规则号字面量）：${ruleRegressions.length} 项超出基线（只许降不许升）`);
+    for (const r of ruleRegressions) console.error(`  ✗ ${r}`);
+  }
+  console.error("\n  处置：分层残留 → 迁个人层/配置层，或（确属通用功能词）登记 scripts/dualtrack-whitelist.json");
+  console.error("        规则号字面量 → 改为通用 kind 名（架构 v3 §三 L1）；判据 D 不设白名单。");
   process.exit(1);
 }
-console.log(`DUALTRACK OK：合计 ${grandTotal}（基线 ${baseline.total ?? "?"}）${improvements.length ? `，${improvements.length} 个文件下降可 --update` : ""}`);
-for (const im of improvements.slice(0, 5)) console.log(`  ↓ ${im}`);
+const downCount = improvements.length + ruleImprovements.length;
+console.log(`DUALTRACK OK：判据 A 合计 ${grandTotal}（基线 ${baseline.total ?? "?"}）／判据 D 合计 ${ruleGrandTotal}（基线 ${baseline.ruleLiteralsTotal ?? "?"}）${downCount ? `，${downCount} 个文件下降可 --update` : ""}`);
+for (const im of [...improvements, ...ruleImprovements].slice(0, 5)) console.log(`  ↓ ${im}`);
 process.exit(0);

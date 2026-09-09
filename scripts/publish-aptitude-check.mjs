@@ -64,8 +64,11 @@ process.env.DSH_WORKSPACE = root;
   const plain = understandRule(arbitrary);
   check(plain.handler === "", "③ 任意编号 + 无声明：handler 为空（纯自证分流，不误绑定本机执行器）");
   check(plain.actions.includes("deny") && plain.actions.includes("self-certify"), "③ 任意编号：A+D 动作解析正确（deny+self-certify）");
-  const declared = understandRule({ ...arbitrary, body: arbitrary.body + "\n<!-- handler: rule12a-approval -->" });
-  check(declared.handler === "rule12a-approval", "③ 任意编号 + 声明：绑定指定执行器");
+  // 架构 v3 P1：声明值统一归一为 kind 名——kind 名（陌生用户视角）与历史内部名（兼容）都须绑定
+  const declaredKind = understandRule({ ...arbitrary, body: arbitrary.body + "\n<!-- handler: approval -->" });
+  check(declaredKind.handler === "approval", "③ 任意编号 + 声明（kind 名）：绑定指定执行器");
+  const declaredLegacy = understandRule({ ...arbitrary, body: arbitrary.body + "\n<!-- handler: rule12a-approval -->" });
+  check(declaredLegacy.handler === "approval", "③ 任意编号 + 声明（历史内部名）：归一为同一 kind");
   const covered = analyzeCoverage(understandAll([arbitrary]));
   check(covered.uncovered.some((u) => u.ruleId === "X-77"), "③ 任意编号 A 级无 handler：被标记未覆盖（提示正确）");
   // 通用化闭环：defaultMap 清空 → 陌生规则无兜底绑定（纯声明式世界，不借道本机偏好表）；
