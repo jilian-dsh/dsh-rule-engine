@@ -46,7 +46,7 @@
     "check": "node --check lib/index.js",
     "verify": "node scripts/verify-all.mjs",
     "audit:mount": "node scripts/audit-mount-consistency.mjs --profile web",
-    "check:meta": "node scripts/readme-version-check.mjs && node scripts/local-residue-scan.mjs"
+    "check:meta": "node scripts/readme-version-check.mjs && node scripts/local-residue-scan.mjs && node scripts/dualtrack-check.mjs"
   },
   "peerDependencies": {
     "@deepseek-ai/dsh-home-paths": ">=0.1.0-rc.3 <0.2.0 || >=0.1.1-rc.0 <0.2.0 || >=0.1.2-rc.0 <0.2.0",

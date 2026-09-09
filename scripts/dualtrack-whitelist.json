@@ -1,0 +1,7 @@
+{
+  "note": "dualtrack-check 白名单。登记即豁免——但登记是一次「分类决策」，请写清理由。",
+  "files": [
+    "lib/lang/**"
+  ],
+  "strings": []
+}

@@ -1,4 +1,22 @@
 // run-all.mjs - 依次运行全部单测（.mjs 化：避免 .js 被 Windows 脚本主机误打开弹窗）
+import { useChineseLexicons, useChinesePatterns } from "./helpers.mjs";
+
+// P8 小批 A/B（2026-09-08）：内置词表与检测正则已改为通用最小集（语言无关，随包发布）——
+// 本仓库回归测试全部基于中文样本，故入口统一注入中文夹具（等价于本机 rule-engine.json 的
+// lexicons / patterns 键）。必须在任何动态 import 之前执行：两者都是模块级状态。
+{
+  const res = useChineseLexicons();
+  if (res.rejected.length > 0) {
+    console.error("词表夹具注入失败:", JSON.stringify(res.rejected));
+    process.exit(1);
+  }
+  const pres = useChinesePatterns();
+  if (pres.rejected.length > 0) {
+    console.error("检测正则夹具注入失败:", JSON.stringify(pres.rejected));
+    process.exit(1);
+  }
+}
+
 const tests = [
   "./parser.test.mjs",
   "./understander.test.mjs",
@@ -69,10 +87,24 @@ const tests = [
   // 判例登记链路（0.5.15，block 级/一次性/持久化）
   "./turn-card-verdict.test.mjs",
   // C4（2026-09-03）：物理确认类型/配置化 setTypeHints——纯函数，固定末尾
-  "./approve.test.mjs"
+  "./approve.test.mjs",
+  // P8 小批 A（2026-09-08）：词表配置化等价性 + 双层模型（自注入/自重置，纯函数）——固定末尾
+  "./lexicon-config.test.mjs",
+  // P8 小批 B（2026-09-08）：检测正则配置化等价性 + 双层模型（自注入/自重置，纯函数）——固定末尾
+  "./patterns-config.test.mjs",
+  // P8 小批 C（2026-09-08）：A″ 批评检测配置化 + 三态（含行为闸冻结，动态 import index.js）——固定末尾
+  "./criticism-config.test.mjs",
+  // 第三批小批 B 第一小域（2026-09-09）：text-detect/matcher 22 键 + self_cert_hints 映射等价性——固定末尾
+  "./detect-config.test.mjs",
+  // 第三批质量账本（2026-09-09）：签名确定性/落盘格式/窗口对比/默认关——固定末尾
+  "./quality-ledger.test.mjs",
+  // 第三批第 1 波（2026-09-09）：首启语言探测（纯函数）——固定末尾
+  "./lang.test.mjs"
 ];
 
 for (const t of tests) {
+  useChineseLexicons(); // 每个测试前重申夹具（防前序测试显式 reset/注入后未还原）
+  useChinesePatterns();
   console.log(`\n== ${t} ==`);
   // consistency-live：真实环境守门测试——必须在真实 DSH_HOME 下运行（tmp 隔离 → SKIP 失去守门价值）
   // 特批：跑前暂存并删除 DSH_HOME（resolveDshHome 回落真实 ~/.dsh），跑后恢复

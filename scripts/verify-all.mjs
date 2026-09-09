@@ -131,6 +131,10 @@ step("发布门禁 B1（README 版本四性一致性：package.json/徽章/正�
 // ── ⑩ 发布门禁 B2（阶段 B，2026-09-04：lib/ 本机痕迹扫描，词表唯一源）──
 step("发布门禁 B2（lib/ 本机痕迹扫描——词表唯一源，命中即红）", process.execPath, [join(root, "scripts", "local-residue-scan.mjs")]);
 
+// ── ⑩′ 发布门禁 B3：dualtrack-check（2026-09-09 第三批第 1 波：分层残留棘轮闸——
+//    手册 SKILL.md:113「机器校验（dualtrack-check）为验收兜底」的落地；只许降不许升）──
+step("发布门禁 B3（dualtrack 分层残留棘轮——超出基线即红）", process.execPath, [join(root, "scripts", "dualtrack-check.mjs")]);
+
 // ── ⑪ 存在性扫描（泄露预防，2026-09-05：真实路径判据——REAL_PATHS_SCAN 指向扫描器，0 命中才算过；
 //    未设置=WARN（本机增强门禁，通用环境无此工具）──
 {

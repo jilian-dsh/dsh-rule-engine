@@ -245,14 +245,14 @@ try {
 // ═══ 场景⑧ F2：verify-gap 词面收紧——裸"完成"不触发；强完成声明触发 ═══
 {
   // 裸"完成"（过程说明）→ 不触发（F2 修掉"完成社区检索/尚未完成"误触）
-  assert.equal(DELIVERY_RE.test("本次总结如下：尚待完成社区检索"), false, "⑧ 待完成（进程/否定）不触发");
-  assert.equal(DELIVERY_RE.test("完成社区检索后我再继续"), false, "⑧ 完成社区检索（过程）不触发");
-  assert.equal(DELIVERY_RE.test("还没有完成，正在处理中"), false, "⑧ 还没有完成（否定）不触发");
+  assert.equal(DELIVERY_RE().test("本次总结如下：尚待完成社区检索"), false, "⑧ 待完成（进程/否定）不触发");
+  assert.equal(DELIVERY_RE().test("完成社区检索后我再继续"), false, "⑧ 完成社区检索（过程）不触发");
+  assert.equal(DELIVERY_RE().test("还没有完成，正在处理中"), false, "⑧ 还没有完成（否定）不触发");
   // 强完成声明 → 触发
-  assert.equal(DELIVERY_RE.test("修复已完成"), true, "⑧ 已完成触发");
-  assert.equal(DELIVERY_RE.test("全部测试通过"), true, "⑧ 全部通过触发");
-  assert.equal(DELIVERY_RE.test("验证通过"), true, "⑧ 验证通过触发");
-  assert.equal(DELIVERY_RE.test("已修复该问题"), true, "⑧ 已修复触发");
+  assert.equal(DELIVERY_RE().test("修复已完成"), true, "⑧ 已完成触发");
+  assert.equal(DELIVERY_RE().test("全部测试通过"), true, "⑧ 全部通过触发");
+  assert.equal(DELIVERY_RE().test("验证通过"), true, "⑧ 验证通过触发");
+  assert.equal(DELIVERY_RE().test("已修复该问题"), true, "⑧ 已修复触发");
 }
 
 // ═══ 场景⑨ 清理→delete 授权映射（2026-08-29 修正：清理/清空/丢弃归 delete）═══

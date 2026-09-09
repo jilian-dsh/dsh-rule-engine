@@ -16,8 +16,8 @@ import {
   isSensitiveToolCall,
   isVerificationCommand,
   isOutsideWorkspace,
-  PROMISE_WORDS,
-  TIME_WORDS,
+  promiseWordsRe,
+  timeWordsRe,
   setWorkspaceRoot,
   setWorkspaceRoots,
   setSessionWorkspaceRoot
@@ -139,11 +139,11 @@ assert.equal(isNegatingSuggestion("不再提出新建议"), true);
 assert.equal(isNegatingSuggestion("我建议用这个方案"), false);
 
 // ── B3（2026-08-29）：无引号转述豁免 + 第一人称不豁免 + 时间词通用 ──
-assert.equal(isQuoteOrParaphraseContext("用户之前说万无一失", PROMISE_WORDS), true, "B3: 无引号转述（用户说…）不触发");
-assert.equal(isQuoteOrParaphraseContext("他提到过保证马上到", PROMISE_WORDS), true, "B3: 提到过+保证 不触发");
-assert.equal(isQuoteOrParaphraseContext("我说保证马上到", PROMISE_WORDS), false, "B3: 第一人称'我说保证'仍按承诺（转述不了自己）");
-assert.equal(isQuoteOrParaphraseContext("我保证能修好", PROMISE_WORDS), false, "B3: 裸承诺词仍触发");
-assert.equal(isQuoteOrParaphraseContext("据用户转述昨天已确认", TIME_WORDS), true, "B3: 时间词转述语境不触发");
-assert.equal(isQuoteOrParaphraseContext("我昨天完成了", TIME_WORDS), false, "B3: 第一人称时间词仍按未核对");
+assert.equal(isQuoteOrParaphraseContext("用户之前说万无一失", promiseWordsRe()), true, "B3: 无引号转述（用户说…）不触发");
+assert.equal(isQuoteOrParaphraseContext("他提到过保证马上到", promiseWordsRe()), true, "B3: 提到过+保证 不触发");
+assert.equal(isQuoteOrParaphraseContext("我说保证马上到", promiseWordsRe()), false, "B3: 第一人称'我说保证'仍按承诺（转述不了自己）");
+assert.equal(isQuoteOrParaphraseContext("我保证能修好", promiseWordsRe()), false, "B3: 裸承诺词仍触发");
+assert.equal(isQuoteOrParaphraseContext("据用户转述昨天已确认", timeWordsRe()), true, "B3: 时间词转述语境不触发");
+assert.equal(isQuoteOrParaphraseContext("我昨天完成了", timeWordsRe()), false, "B3: 第一人称时间词仍按未核对");
 
 console.log("semantic-gate.test.mjs PASS");
