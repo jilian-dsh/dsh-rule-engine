@@ -70,7 +70,7 @@ DSH 规则执行引擎 v3 的插件实现。它把 `~/.dsh/AGENTS.md` 当作唯�
 
 **迁移（0.5.x → 0.6.0）**：0.6.0 前默认生效的守卫在升级后**不再默认激活**——需要本机行为（统一入口保护 / 手册豁免 / M8 记忆链 / 追加受保护文件）时，按上表把配置段并入本机 `rule-engine.json`。**通用用户无需任何配置**；未配置时相关守卫路径不存在，直写任意文件不受引擎限制（这是 0.6.0 的设计决定：发布物无权限制其他用户的写入方式；本机约定属于本机配置，不属于通用引擎）。
 
-## 词表配置（lexicons / patterns / criticismPersonal）
+## 词表配置（lexicons / patterns / criticismPersonal / dualtrack）
 
 引擎的行为词表与检测正则**全部可配置**：代码里只留机制与语言无关的内置默认，中文/本机词表放在 `rule-engine.json`。
 
@@ -144,6 +144,28 @@ DSH 规则执行引擎 v3 的插件实现。它把 `~/.dsh/AGENTS.md` 当作唯�
 ```json
 { "criticismPersonal": ["示例词一", "示例词二"] }
 ```
+
+#### 4. `dualtrack` —— 分层残留词表（**发布者私有**）
+
+它不是行为词表，而是**发布门禁**用的「我这台机器长什么样」清单：`dualtrack-check`（B3 层）与 `local-residue-scan`（B2 层）用它扫 `lib/`，看有没有夹带本机信息（用户名、本机路径、私人概念等）。
+
+| 键 | 作用 |
+|---|---|
+| `markers` | 本机标识词表（字符串数组，每项一个待扫串） |
+| `whitelist` | 本机豁免（`files` 整文件 / `strings` 精确串）——与包内 `scripts/dualtrack-whitelist.json` 合并生效 |
+
+```json
+{
+  "dualtrack": {
+    "markers": ["<你的用户名>", "<你的本机路径片段>"],
+    "whitelist": { "files": [], "strings": [] }
+  }
+}
+```
+
+**加载优先级**（取先命中者）：`rule-engine.json` 的 `dualtrack.markers` → 环境变量 `DUALTRACK_MARKERS` 指向的文件（每行一个，`#` 开头为注释）→ 包内 `scripts/local-residue-markers.txt`（仅示例）。
+
+> **三者皆空 = REFUSED**（fail-closed）：空词表不会被当成「没有残留」，而是直接拒绝执行——**空 txt 文件同样不作为词表源**。闸本身怎么跑，见「开发与测试」章节的「分层残留闸（dualtrack）」。
 
 ### 「加一个词」操作路径
 
