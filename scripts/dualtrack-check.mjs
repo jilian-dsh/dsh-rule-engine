@@ -278,6 +278,13 @@ if (args.has("--init") || args.has("--update")) {
     console.error("REFUSED: --update 需要已存在的基线；首次请用 --init");
     process.exit(1);
   }
+  if (!isUpdate && fs.existsSync(BASELINE_FILE)) {
+    console.error(
+      `REFUSED: 基线已存在（${BASELINE_FILE}）——--init 仅用于首次生成。\n` +
+      "      --init 会把当前计数覆盖为基线（棘轮失效）；确需更新请用 --update（须在提交说明里写清改了什么）"
+    );
+    process.exit(1);
+  }
   const payload = {
     generatedAt: new Date().toISOString(),
     note: "dualtrack 棘轮基线：各文件「分层残留」计数，只许降不许升。--init 首次生成，--update 手动更新（须在提交说明里写清改了什么）。",

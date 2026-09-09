@@ -389,6 +389,12 @@ bash scripts/build.sh
 
 交付前体检（0.5.7 起）：`node scripts/verify-all.mjs`（七层：语法/单元/组合冒烟/工具箱覆盖/守卫链覆盖/关联一致性/真实判例）与 `node scripts/health-audit.mjs`（找茬）——详见「质量与验证」。
 
+**分层残留闸（dualtrack）**：`node scripts/dualtrack-check.mjs` 扫描 `lib/` 是否混入发布者私有内容（本机标识 / 个人规则描述），棘轮式**只许降不许升**；已挂 `npm run check:meta` 与 `verify-all.mjs` 第 ⑩′ 层自动调用。基线 `scripts/dualtrack-baseline.json` **随 git 仓库提供、不进 npm 包**：
+
+- **从 git clone 的贡献者无需任何操作**（基线已在仓库里）——**勿在有基线时跑 `--init`**，它会把当前计数覆盖为基线、棘轮当场失效；
+- **仅当基线缺失时**（如从 npm 包解压后跑门禁、或基线被删）首次运行 `node scripts/dualtrack-check.mjs --init` 生成；
+- 词表（哪些字符串算「本机残留」）来自 `rule-engine.json` 的 `dualtrack.markers` → `DUALTRACK_MARKERS` 环境变量 → 包内示例；三者皆空时 **REFUSED**（fail-closed，不会「以为配好了其实没配」）。
+
 发布：`node scripts/release-plugin.mjs <插件名> <版本号>`（一键 npm + git + GitHub Release；发布脚本随插件仓库管理——`scripts/release-plugin.mjs`；改发布脚本后须 `--dry-run` + 代码审查，注意 dry-run 不覆盖 git 段）。
 
 ## License
