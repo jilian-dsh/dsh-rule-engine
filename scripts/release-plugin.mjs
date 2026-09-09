@@ -166,7 +166,8 @@ if (dryRun) {
   // §1.2（2026-09-08）dry-run 可观测项（单测锚点）
   console.log(`[DRY-RUN] plugins.json 条目: ${entry ? `${entry.name} (dir=${entry.dir})` : "(未命中——将回退目录路径参数)"}`);
   console.log(`[DRY-RUN] dist-tags 轮询: ${Math.max(30, Number(process.env.RELEASE_DIST_TAG_POLL_SEC) || 180)}s（RELEASE_DIST_TAG_POLL_SEC 可配）`);
-  console.log(`[DRY-RUN] README 四点同步: 徽章 / 正文当前版本 / 历史表新行 / 固定源占位注释`);
+  console.log(`[DRY-RUN] README 四点同步: 徽章 / 正文当前版本 / 历史表新行 / 固定源自动维护`);
+  console.log(`[DRY-RUN] 固定源将更新为: **${nextVer}（当前）** 锚点 ${quiet(`cd /d "${dir}" && git rev-parse HEAD`).trim().slice(0, 7)}（发布后自动回填 release 提交号）`);
   process.exit(0);
 }
 writeFileSync(pkgPath, readFileSync(pkgPath, "utf8").replace(`"version": "${oldVer}"`, `"version": "${nextVer}"`));
@@ -186,19 +187,32 @@ for (const readme of ["README.md", "README.en.md"]) {
     if (replaced !== text) writeFileSync(rp, replaced);
   }
 }
-// §1.2-②（2026-09-08 第二批）：README 正文"当前版本"行同步 + 固定源占位注释（发布后回填锚点，可 grep）
+// §1.2-②（2026-09-08 第二批）：README 正文"当前版本"行同步
+// 方案 A（2026-09-09，踩坑 140 根治）：固定源行**自动维护**——bump 时插入「（当前）」行（锚点=改号前 HEAD），
+//   发布提交后由 §5.5 回填真实 release 提交号；旧「（当前）」标记与遗留占位注释一并清理。
+//   旧做法只插占位注释，而 B1 门禁要求「固定源=package 版本」→ 每次发布必撞（0.6.3 首发实证）。
+const headBeforeShort = quiet(`cd /d "${dir}" && git rev-parse HEAD`).trim().slice(0, 7);
+let fixedSourceBumpLine = "";
 for (const readme of ["README.md", "README.en.md"]) {
   const rp = join(dir, readme);
   if (!existsSync(rp)) continue;
   let rtxt = readFileSync(rp, "utf8");
   const before = rtxt;
   rtxt = rtxt.replace(/(> 当前版本 \*\*)\d+\.\d+\.\d+(\*\*)/, `$1${nextVer}$2`);
-  if (readme === "README.md" && rtxt.includes("## 发行固定源") && !rtxt.includes("<!-- fixed-source:")) {
-    rtxt = rtxt.replace("## 发行固定源", "## 发行固定源\n\n<!-- fixed-source: 待发布回填 -->");
+  if (readme === "README.md" && rtxt.includes("## 发行固定源")) {
+    // ① 旧「（当前）」标记降级（只保留版本号加粗）
+    rtxt = rtxt.replace(/\*\*(\d+\.\d+\.\d+)（当前）\*\*/g, "**$1**");
+    // ② 清理遗留占位注释（方案 A 起不再产生）
+    rtxt = rtxt.replace(/\n<!-- fixed-source: [^>]*-->\n/g, "\n");
+    // ③ 插入新版本行（幂等：已存在则跳过）
+    if (!rtxt.includes(`- **${nextVer}（当前）**`)) {
+      fixedSourceBumpLine = `- **${nextVer}（当前）** 固定于 main Commit \`${headBeforeShort}\`（\`git checkout ${headBeforeShort}\` + 发布 bump 可复现 npm \`${name}@${nextVer}\` 与 GitHub Release v${nextVer} 同源代码）。**注：release 提交号由发布脚本自动回填。**`;
+      rtxt = rtxt.replace("## 发行固定源\n", `## 发行固定源\n\n${fixedSourceBumpLine}\n`);
+    }
   }
   if (rtxt !== before) writeFileSync(rp, rtxt);
 }
-console.log("版本已 bump（package.json + README 徽章 + 正文当前版本 + 固定源占位）");
+console.log(`版本已 bump（package.json + README 徽章 + 正文当前版本 + 固定源 ${nextVer}（锚点 ${headBeforeShort}））`);
 
 // B1（2026-09-03）：README 版本表行自动插入（阶段 C 人脑核对已失效的自动化；幂等：已存在 nextVer 行则跳过）
 // 位置：版本表（| 版本 | 日期 | 要点 |）表头后第一数据行之前（最新在上）；内容用调用方 notes 参数或 git log 最近提交信息
@@ -343,6 +357,23 @@ if (untrackedList.length > 0) {
 run(`cd /d "${repoRoot}" && ${proxyPrefix()}git add -A -- ${stageSpec}`);
 run(`cd /d "${repoRoot}" && git -c core.autocrlf=false commit -m "release: ${name} v${nextVer}" || exit 0`);
 run(`cd /d "${repoRoot}" && ${proxyPrefix()}git push "${pushUrl}" HEAD`);
+
+// ── 5.5 固定源回填（方案 A，2026-09-09）：用 release 提交号替换 bump 时的锚点 ──
+if (fixedSourceBumpLine) {
+  const relShort = quiet(`cd /d "${repoRoot}" && git rev-parse HEAD`).trim().slice(0, 7);
+  const rd = join(dir, "README.md");
+  const rtxt = existsSync(rd) ? readFileSync(rd, "utf8") : "";
+  const finalLine = `- **${nextVer}（当前）** 固定于 main Commit \`${relShort}\`（\`git checkout ${relShort}\` 可复现 npm \`${name}@${nextVer}\` 与 GitHub Release v${nextVer} 同源代码）。`;
+  if (rtxt.includes(fixedSourceBumpLine)) {
+    writeFileSync(rd, rtxt.replace(fixedSourceBumpLine, finalLine), "utf8");
+    console.log(`\n=== 固定源回填 ===\n${nextVer}：锚点 ${headBeforeShort} → release 提交 ${relShort}`);
+    run(`cd /d "${repoRoot}" && ${proxyPrefix()}git add -A -- ${stageSpec}`);
+    run(`cd /d "${repoRoot}" && git -c core.autocrlf=false commit -m "docs(readme): ${nextVer} 固定源回填 ${relShort}（发布后自动同步）" || exit 0`);
+    run(`cd /d "${repoRoot}" && ${proxyPrefix()}git push "${pushUrl}" HEAD`);
+  } else {
+    console.log("（固定源回填跳过：未匹配到 bump 行——可能已手工回填）");
+  }
+}
 
 // ── 6. GitHub Release（带正式 tgz asset，规则 26；清单标记 skipRelease 的包不建）─────
 if (entry?.skipRelease) {

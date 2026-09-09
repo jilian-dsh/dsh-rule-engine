@@ -25,11 +25,11 @@ function dryRun(extraEnv = {}) {
   assert.ok(r.stdout.includes("dsh-rule-engine (dir=.)"), "plugins.json 条目命中（dir=.）");
 }
 
-// 例②：README 四点同步声明（徽章/正文/历史表/固定源占位）
+// 例②：README 四点同步声明（徽章/正文/历史表/固定源自动维护——2026-09-09 方案 A 起由占位改为自动维护）
 {
   const r = dryRun();
   assert.ok(r.stdout.includes("README 四点同步"), "README 四点同步声明");
-  assert.ok(r.stdout.includes("固定源占位注释"), "固定源占位注释在列");
+  assert.ok(r.stdout.includes("固定源自动维护"), "固定源自动维护在列");
 }
 
 // 例③：轮询可配
@@ -40,6 +40,14 @@ function dryRun(extraEnv = {}) {
   assert.ok(r2.stdout.includes("轮询: 30s"), "env 覆盖 30s");
   const r3 = dryRun({ RELEASE_DIST_TAG_POLL_SEC: "5" });
   assert.ok(r3.stdout.includes("轮询: 30s"), "低于下限钳制到 30s");
+}
+
+// 例④（2026-09-09 方案 A，踩坑 140 根治）：固定源自动维护声明 + 锚点形态 + 自动回填声明
+{
+  const r = dryRun();
+  assert.ok(r.stdout.includes("固定源将更新为"), "固定源自动维护声明在列");
+  assert.ok(r.stdout.includes("（当前）**"), "固定源锚点形态含（当前）标记");
+  assert.ok(r.stdout.includes("发布后自动回填"), "自动回填声明在列");
 }
 
 console.log("release-plugin.test.js PASS");
