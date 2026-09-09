@@ -395,10 +395,22 @@ dsh plugin --profile web add dsh-rule-engine
   - dsh-visualize（Nagi-ovo）
   - dsh-rules-manager（jilian-dsh）
   - dsh-vision-router、dsh-example-injector 等未列出的作者
+- **设计思想与机制来源（本项目直接内化/借鉴）**：
+  - stop-that-shit（lennney）：任务边界、反过度工程、预算与四类越界——任务契约模块的设计源头。
+  - dsh-agi-harness（yjh051108）：闸=最小决策单元、Wilson 下界、拒因即指路、自由面/盲区显式声明、任务签名+质量趋势（quality-ledger）、变异测试+棘轮。
+  - Claude Code 权限范式（Anthropic 官方文档）：默认询问、deny 永远赢、通配符规则只加不放。
+  - mattpocock/skills「writing-for-agents」：写给 agent 的文档方法论。
+  - dsh-zvec-grep（sugarforever）：后台任务型插件写法。
+- **升级与审查工具链**：
+  - oh-my-dsh / dsh-plugin-upgrade-skill（社区）：0.1.2 升级卡库与对策集。
+  - build-dsh-plugin（AI-Scarlett）：插件完备性审计。
+  - cordis-plugin-thinking-loop-guard（argszero）：纯思考空转的源码级判读。
 - **学习参考的社区文档/库作者**：
   - dsh-handbook（Electricitysheep）
   - SandBase deepseek-harness-handbook（sandbaseai）
+  - awesome-dsh-plugin / Oh! dsh（生态目录）
   - 以及 DSH 官方文档镜像与源码维护者
+- **贡献建议与实证的个人**：TheBuilderJR、Reximmortal1021、AI-Scarlett、ckcfcc、goatliamia 等。
 
 ## 免责声明
 
