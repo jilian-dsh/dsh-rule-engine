@@ -17,9 +17,21 @@ import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { useChineseLexicons, useChinesePatterns } from "./helpers.mjs";
 
 const home = mkdtempSync(join(tmpdir(), "dsh-re-smoke-"));
 process.env.DSH_HOME = home;
+
+// P8 词表配置化（2026-09-08）后内置词表=语言无关通用最小集，而本测试样本全为中文——
+// 必须与 run-all 入口同源注入中文夹具（模块级状态，须在引擎模块动态 import 之前）。
+// 缺此注入：C 步「本次总结如下」检测不到 → 裁决未触发 → 断言 0 !== 1（verify-all 组合冒烟曾因此红）。
+{
+  const lex = useChineseLexicons();
+  const pat = useChinesePatterns();
+  if (lex.rejected.length > 0 || pat.rejected.length > 0) {
+    throw new Error(`中文夹具注入失败: ${JSON.stringify({ lexicons: lex.rejected, patterns: pat.rejected })}`);
+  }
+}
 
 const { state } = await import("../lib/core/runtime.js");
 const { handleSessionEvent, criticismFreezeDecision } = await import("../lib/index.js");
