@@ -4,10 +4,12 @@
 //   铁律=代码层零本机内容（发布门禁扫描红）；机器校验（dualtrack-check）为验收兜底」。
 // 本脚本是那句承诺的落地实现。
 //
-// 扫描三层（lib/**/*.js）：
-//   ① 运行时字符串：字符串字面量内的 CJK 字符（注释剔除，JSDoc 跳过；正则字面量不计——另有 P8 扫描器）
-//   ② 映射表键：对象字面量键名匹配 ^\d+[A-Z]?$ 或含 CJK
-//   ③ 本机标识：复用 B2 词表 scripts/local-residue-markers.txt（路径/脚本名/端口/代理变量）
+// 扫描范围（lib/**/*.js）——判据 A（2026-09-09 用户拍板，与方案 §一 一致）：
+//   闸只扫「**会随发布者/规则集/环境变化**」的内容，不扫通用中文文案。
+//   ① 本机标识：发布者私有词表（rule-engine.json 的 dualtrack.markers）命中的字符串
+//   ② 映射表键：对象字面量键名匹配 ^\d+[A-Z]?$ 或含 CJK（规则号索引=某人的规则体系）
+//   —— 通用中文文案（字符串字面量内的 CJK）**不计入**：第三方判据明示「中文≠个人化，
+//      通用功能词/提示语是产品能力」。runtime 计数仍在 --report 里显示，供参考。
 //
 // 棘轮（ratchet）：基线记录各文件计数，只许降不许升。
 //   node scripts/dualtrack-check.mjs            # 比对基线（CI/发布门禁用）
@@ -19,8 +21,10 @@
 //   files   —— 整文件豁免（如 lib/lang/**，第 3 批语言包）
 //   strings —— 通用功能词精确豁免（第三方 §一：中文≠个人化，许可词/时间词是产品能力）
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { loadMarkers } from "../lib/core/dualtrack-markers.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const LIB = path.join(ROOT, "lib");
@@ -32,14 +36,36 @@ const CJK = /[\u4e00-\u9fff]/;
 const MAP_KEY_RE = /^\d+[A-Z]?$/;
 
 // ── 白名单 ──
+/** 白名单两层（2026-09-09）：包内通用白名单 + 本机 rule-engine.json 的 dualtrack.whitelist 合并。
+ *  包内那份随包发布（如 lib/lang/**）；本机那份记录「我豁免我自己的某条」，不进包。 */
 function loadWhitelist() {
-  if (!fs.existsSync(WHITELIST_FILE)) return { files: [], strings: new Set() };
-  try {
-    const w = JSON.parse(fs.readFileSync(WHITELIST_FILE, "utf8"));
-    return { files: w.files || [], strings: new Set(w.strings || []) };
-  } catch (e) {
-    throw new Error(`白名单解析失败：${WHITELIST_FILE} — ${e.message}`);
+  const files = [];
+  const strings = new Set();
+  // ① 包内通用白名单
+  if (fs.existsSync(WHITELIST_FILE)) {
+    try {
+      const w = JSON.parse(fs.readFileSync(WHITELIST_FILE, "utf8"));
+      for (const f of w.files || []) files.push(f);
+      for (const s of w.strings || []) strings.add(s);
+    } catch (e) {
+      throw new Error(`白名单解析失败：${WHITELIST_FILE} — ${e.message}`);
+    }
   }
+  // ② 本机白名单（rule-engine.json 的 dualtrack.whitelist）
+  try {
+    const p = path.join(process.env.DSH_HOME || path.join(os.homedir(), ".dsh"), "rule-engine.json");
+    if (fs.existsSync(p)) {
+      const cfg = JSON.parse(fs.readFileSync(p, "utf8"));
+      const w = cfg?.dualtrack?.whitelist;
+      if (w && typeof w === "object") {
+        for (const f of w.files || []) files.push(f);
+        for (const s of w.strings || []) strings.add(s);
+      }
+    }
+  } catch {
+    // 本机配置不可读 → 只用包内白名单（不阻断）
+  }
+  return { files, strings };
 }
 
 /** 整文件豁免匹配（支持 ** 与 * 通配，路径用 / 分隔，相对仓库根） */
@@ -81,21 +107,55 @@ function tokenize(src) {
     // 字符串 / 模板串
     if (c === '"' || c === "'" || c === "`") {
       const q = c;
+      const start = i;
       i++;
       let buf = "";
-      while (i < n && src[i] !== q) {
-        if (src[i] === "\\") { buf += src[i] + (src[i + 1] || ""); i += 2; continue; }
-        buf += src[i];
-        i++;
+      if (q === "`") {
+        // 模板串：整段作为一个字符串，但 `${...}` 内的表达式跳过（不计入内容，也不当键）
+        while (i < n) {
+          const ch = src[i];
+          if (ch === "\\") { buf += ch + (src[i + 1] || ""); i += 2; continue; }
+          if (ch === "$" && src[i + 1] === "{") {
+            let depth = 1;
+            i += 2;
+            while (i < n && depth > 0) {
+              const d = src[i];
+              if (d === "\\") { i += 2; continue; }
+              if (d === "{") depth++;
+              else if (d === "}") depth--;
+              else if (d === '"' || d === "'" || d === "`") {
+                const qq = d; i++;
+                while (i < n && src[i] !== qq) { if (src[i] === "\\") i++; i++; }
+              }
+              i++;
+            }
+            buf += "\u0000"; // 表达式占位（不含 CJK）
+            continue;
+          }
+          if (ch === "`") break;
+          buf += ch;
+          i++;
+        }
+      } else {
+        while (i < n && src[i] !== q) {
+          if (src[i] === "\\") { buf += src[i] + (src[i + 1] || ""); i += 2; continue; }
+          buf += src[i];
+          i++;
+        }
       }
       i++; // 收尾引号
       strings.push(buf);
-      // 对象键判定：字符串后（跳过空白）紧跟冒号
+      // 对象键判定（2026-09-09 修正）：必须「前面是 { 或 ,」且「后面（跳空白）是 :」
+      // —— 否则模板串分段与三元表达式会被误判成键（20 处误报的根因）。
       let j = i;
       while (j < n && /\s/.test(src[j])) j++;
       if (src[j] === ":") {
-        const plain = buf.replace(/\\(.)/g, "$1");
-        if (MAP_KEY_RE.test(plain) || CJK.test(plain)) mapKeys.push(plain);
+        let p = start - 1;
+        while (p >= 0 && /\s/.test(src[p])) p--;
+        if (src[p] === "{" || src[p] === ",") {
+          const plain = buf.replace(/\\(.)/g, "$1");
+          if (MAP_KEY_RE.test(plain) || CJK.test(plain)) mapKeys.push(plain);
+        }
       }
       prevSig = "str";
       continue;
@@ -168,7 +228,8 @@ function scanFile(absPath, relPath, whitelist, residueMarks) {
     runtime,
     mapKeys: mapHits.length,
     local,
-    total: runtime + mapHits.length + local,
+    // 判据 A：total 只计「本机性」两类；通用中文文案（runtime）不计入闸
+    total: mapHits.length + local,
     runtimeHits,
     mapHits: mapHits.slice(0, 5),
     localHits
@@ -188,9 +249,12 @@ function walk(dir, base = dir, out = []) {
 // ── 主流程 ──
 const args = new Set(process.argv.slice(2));
 const whitelist = loadWhitelist();
-const residueMarks = fs.existsSync(RESIDUE_FILE)
-  ? fs.readFileSync(RESIDUE_FILE, "utf8").split(/\r?\n/).map((s) => s.trim()).filter((s) => s && !s.startsWith("#"))
-  : [];
+// 本机标识词表：与 B2 扫描器共用唯一加载器（本机配置优先 → 环境变量 → 包内示例）
+const { markers: residueMarks, source: markersSource } = loadMarkers({ root: ROOT });
+if (residueMarks.length === 0) {
+  console.error("REFUSED: 本机标识词表为空——请在 rule-engine.json 配置 dualtrack.markers，或设置 DUALTRACK_MARKERS 环境变量");
+  process.exit(1);
+}
 
 const files = walk(LIB).filter((rel) => !fileExempt(rel, whitelist.files));
 const results = files.map((rel) => scanFile(path.join(LIB, rel), rel, whitelist, residueMarks));
@@ -201,7 +265,8 @@ const grandTotal = results.reduce((a, r) => a + r.total, 0);
 if (args.has("--report")) {
   for (const r of results.sort((a, b) => b.total - a.total)) {
     if (r.total === 0) continue;
-    console.log(`  ${String(r.total).padStart(4)}  lib/${r.relPath}  [字符串 ${r.runtime} / 映射键 ${r.mapKeys} / 本机标识 ${r.local}]`);
+    console.log(`  ${String(r.total).padStart(4)}  lib/${r.relPath}  [映射键 ${r.mapKeys} / 本机标识 ${r.local} / 通用中文文案 ${r.runtime}（不计入闸）]`);
+    if (r.mapHits.length) console.log(`        命中键：${r.mapHits.join(" / ")}`);
   }
   console.log(`\nDUALTRACK REPORT：${results.length} 文件，合计 ${grandTotal}`);
   process.exit(0);

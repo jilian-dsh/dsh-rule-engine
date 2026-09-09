@@ -13,6 +13,7 @@
     "lib",
     "scripts",
     "!scripts/local-residue-markers.txt",
+    "!scripts/dualtrack-baseline.json",
     "upgrade-impact.json",
     "cordis.patch.yml",
     "README.md",
