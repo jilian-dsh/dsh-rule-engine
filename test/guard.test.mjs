@@ -691,29 +691,38 @@ assert.match(hit.reason, /已有授权范围 \[无\]/, "D3: 无授权描述=无�
 // ── A4 新增用例 6（v1.3）：A2-6/A2-7 中性化锁定——RULE_HINTS/拦截文案/契约分类不含本机字样 ──
 // 词表唯一源（02 文件 B2）：scripts/local-residue-markers.txt
 {
-  const { readFileSync, readdirSync, statSync } = await import("node:fs");
+  const { readFileSync, readdirSync, statSync, existsSync } = await import("node:fs");
   const { join: pjoin, extname } = await import("node:path");
-  const markers = readFileSync(pjoin(process.cwd(), "scripts", "local-residue-markers.txt"), "utf8")
-    .split("\n").map((s) => s.trim()).filter((s) => s && !s.startsWith("#"));
-  const TEXT_EXT = new Set([".js", ".mjs", ".cjs", ".json", ".md", ".yml", ".yaml"]);
-  function* walk(dir) {
-    for (const e of readdirSync(dir)) {
-      const p = pjoin(dir, e);
-      const st = statSync(p);
-      if (st.isDirectory()) { if (e !== "node_modules" && e !== ".git") yield* walk(p); }
-      else if (TEXT_EXT.has(extname(e))) yield p;
-    }
-  }
-  const hits = [];
-  for (const file of walk(pjoin(process.cwd(), "lib"))) {
-    const text = readFileSync(file, "utf8");
-    text.split("\n").forEach((line, i) => {
-      for (const m of markers) {
-        if (line.includes(m)) hits.push(`${file}:${i + 1} [${m}]`);
+  // 词表唯一源已迁至个人层（2026-09-11 分层迁移：引擎包 scripts/ 整目录移出，见 package.json files 白名单）。
+  // 文件缺失 → 跳过本用例：本机痕迹的机械扫描由**个人层**承担（scripts/local-residue-scan.mjs，B2 门禁 / check:meta）；
+  // 引擎包不再持有词表（词表=发布者私有数据，属个人层，不随发布物）。
+  const markerPath = pjoin(process.cwd(), "scripts", "local-residue-markers.txt");
+  const markers = existsSync(markerPath)
+    ? readFileSync(markerPath, "utf8").split("\n").map((s) => s.trim()).filter((s) => s && !s.startsWith("#"))
+    : null;
+  if (markers === null || markers.length === 0) {
+    console.log("（跳过 A4-6 本机字样机械扫描：词表已迁个人层——由 scripts/local-residue-scan.mjs 承担）");
+  } else {
+    const TEXT_EXT = new Set([".js", ".mjs", ".cjs", ".json", ".md", ".yml", ".yaml"]);
+    function* walk(dir) {
+      for (const e of readdirSync(dir)) {
+        const p = pjoin(dir, e);
+        const st = statSync(p);
+        if (st.isDirectory()) { if (e !== "node_modules" && e !== ".git") yield* walk(p); }
+        else if (TEXT_EXT.has(extname(e))) yield p;
       }
-    });
+    }
+    const hits = [];
+    for (const file of walk(pjoin(process.cwd(), "lib"))) {
+      const text = readFileSync(file, "utf8");
+      text.split("\n").forEach((line, i) => {
+        for (const m of markers) {
+          if (line.includes(m)) hits.push(`${file}:${i + 1} [${m}]`);
+        }
+      });
+    }
+    assert.deepEqual(hits, [], `A4-6: lib/ 残留本机字样（词表唯一源机械扫描）——${hits.join("；")}`);
   }
-  assert.deepEqual(hits, [], `A4-6: lib/ 残留本机字样（词表唯一源机械扫描）——${hits.join("；")}`);
 }
 
 console.log("guard.test.js PASS");

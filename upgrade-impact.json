@@ -5,7 +5,6 @@
       "summary": "version-guard 放行非表格单行修改（整行替换但行首锚点一致），避免 edit 工具修改规则正文被误回滚",
       "impacts": [
         {
-          "rule": "25",
           "level": "behavior-change",
           "description": "validateEditAppend 新增非表格单行替换放行：行首锚点足够长且规则编号一致时允许整行修改；版本表格行仍保持仅重编号放行。"
         }
@@ -18,32 +17,26 @@
       "summary": "规则引擎设置面板、升级检查与影响展示；规则 19/21/22/24/25/27 执行口径升级",
       "impacts": [
         {
-          "rule": "19",
           "level": "behavior-change",
           "description": "知识沉淀载体从“仅手册”扩展为可选技能/脚本/仓库文档等；不改变用户已写规则文本。"
         },
         {
-          "rule": "21",
           "level": "behavior-change",
           "description": "规则审批改为分级确认，并新增“选项即边界”；不改变既有规则语义。"
         },
         {
-          "rule": "22",
           "level": "behavior-change",
           "description": "被指出错误时需主动给出原因/改正/防再犯；引擎新增 D 级自证提醒。"
         },
         {
-          "rule": "27",
           "level": "behavior-change",
           "description": "装配变更检测从会话级改为全局 mountRevision + 本会话审计证据；其他会话未审计也会被拦。"
         },
         {
-          "rule": "24",
           "level": "behavior-change",
           "description": "新增手工编辑 profile package.json 的 dsh.profile.bundles 类型检查。"
         },
         {
-          "rule": "25",
           "level": "behavior-change",
           "description": "新增 dev_stage_add/call/promote/demote 通用执行器纳入覆盖与敏感授权检查。"
         }

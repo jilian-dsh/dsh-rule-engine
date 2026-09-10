@@ -38,7 +38,6 @@ const tests = [
   "./session-event.test.mjs",
   "./state.test.mjs",
   "./audit.test.mjs",
-  "./release-plugin.test.mjs",
   "./contract.test.mjs",
   "./overengineering.test.mjs",
   "./task-contract-guard.test.mjs",
@@ -102,12 +101,9 @@ const tests = [
   "./lang.test.mjs",
   // 第三批清淤 1a（2026-09-09）：文案层机制（取词/覆盖/插值/缺键可见）——固定末尾
   "./messages.test.mjs",
-  // 第三批第 1 波收尾（2026-09-09）：dualtrack --init 覆盖保护（子进程 CLI 断言，不 import index.js）——固定末尾
-  "./dualtrack-init-guard.test.mjs",
-  // 第三批第 1 波收尾（2026-09-09）：工具目录分隔符兼容（中文顿号/英文逗号，子进程 CLI）——固定末尾
-  "./tool-catalog-separator.test.mjs",
-  // 分层架构 v3 · P0（2026-09-10）：判据 D 规则号字面量门禁（--root 隔离夹具，子进程 CLI）——固定末尾
-  "./dualtrack-rule-literals.test.mjs",
+  // （2026-09-11 分层迁移：dualtrack --init 覆盖保护 / 工具目录分隔符兼容 / 判据 D 规则号门禁
+  //  三项测试随其被测脚本（dualtrack-check.mjs、check-tool-coverage.mjs）一并迁出引擎包 →
+  //  dsh-project/scripts/tests/（个人层——被测对象是维护者门禁脚本，不属通用层，不随发布物））
   // 分层架构 v3 · P1（2026-09-10）：措施类型注册表 + 旧名/kind 行为等价（纯函数）——固定末尾
   "./measure-kinds.test.mjs",
   // D2 修复（2026-09-10）：待决 ask 跨回合存活 + 授权登记（独立 DSH_HOME 试点反馈 ERR-M9Z47H）——固定末尾
