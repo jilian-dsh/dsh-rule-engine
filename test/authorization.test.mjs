@@ -42,6 +42,32 @@ assert.equal(longSrcOp.pathPrefix, "d:/example workspace/dsh-project/video_minim
 assert.equal(longSrcOp.pathPrefixes.length, 2, "pathPrefixes keeps source + destination candidates");
 assert.ok(longSrcOp.pathPrefixes.some((p) => p.includes("comfyui_workflow_templates_json")), "source kept in pathPrefixes for auth matching");
 
+// ═══ A2（2026-09-10）：授权侧多路径支持 + ask 侧登记改复数版 ═══
+// 背景（探针 logs/probe-ask-scope.mjs 实证）：ask 侧原用单数版 inferPathPrefixFromText，只记 1 个路径
+// 且取"最长" → 多路径问题文本下取到的是次要路径（如"去向 .backups/trash-x"）而非主路径 → 主路径授权丢失。
+// 修复：ask 记 pathPrefixes（全部），pathPrefix 取首个（按文本出现顺序=主路径）；
+// authMatches 支持「任一授权路径 × 任一操作候选」。
+const multiAuth = { type: "git", pathPrefix: "d:/ws", pathPrefixes: ["d:/ws", "d:/ws/.backups/trash-x"] };
+assert.equal(authMatches(multiAuth, { type: "git", pathPrefix: "d:/ws" }), true, "A2: 主路径（首个）命中");
+assert.equal(
+  authMatches(multiAuth, { type: "git", pathPrefix: "d:/ws/.backups/trash-x" }),
+  true,
+  "A2: 次要路径亦命中（修复前单数版漏掉）"
+);
+assert.equal(authMatches(multiAuth, { type: "git", pathPrefix: "d:/ws/sub/f.txt" }), true, "A2: 目录级授权覆盖子路径");
+assert.equal(authMatches(multiAuth, { type: "git", pathPrefix: "d:/other" }), false, "A2: 无关路径仍不匹配（不放宽）");
+assert.equal(authMatches(multiAuth, { type: "write", pathPrefix: "d:/ws" }), false, "A2: 类型不符仍不匹配（不放宽）");
+assert.equal(
+  authMatches(multiAuth, { type: "git", pathPrefixes: ["d:/x", "d:/ws/.backups/trash-x"] }),
+  true,
+  "A2: 操作侧多候选，任一命中即匹配"
+);
+// 兼容：无 pathPrefixes 的既有记录行为不变
+const singleAuth = { type: "git", pathPrefix: "d:/ws" };
+assert.equal(authMatches(singleAuth, { type: "git", pathPrefix: "d:/ws" }), true, "A2 兼容: 单路径授权照常命中");
+assert.equal(authMatches(singleAuth, { type: "git", pathPrefix: "d:/other" }), false, "A2 兼容: 单路径不放宽");
+assert.equal(authMatches({ type: "git" }, { type: "git", pathPrefix: "d:/any" }), true, "A2 兼容: 全局（无路径）授权覆盖一切");
+
 // 文本推断
 assert.equal(inferTypeFromText("授权修改 D:\\example\\injector-pkg 下文件"), "write");
 assert.equal(inferTypeFromText("允许删除 test/a.txt"), "delete");
