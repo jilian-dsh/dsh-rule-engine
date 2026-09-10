@@ -267,6 +267,8 @@ console.log(qualityTrend(sig).summary);   // 方向：rework 改善 / 持平 / �
 ## 发行固定源
 
 > **0.6.4（当前）** —— 本版三项修复：**D2**（待决 ask 提升为会话级）/ **B1/C1**（规则 24 官方 bundle 豁免兑现 + 装配不一致的收敛豁免）/ **A2**（ask 授权登记改复数路径 + `authMatches` 多路径匹配）。**适用环境验证 = DSH `0.1.5-rc.2`**（装配 + 冷加载探针 + `npm test` + `verify` 13 层全绿）。**发布 commit 待三通道完成后回填**（届时 `git checkout <hash>` 可复现 npm `dsh-rule-engine@0.6.4` 与 GitHub Release v0.6.4 同源代码）。
+>
+> **回填（发布完成）**：**0.6.4 固定于 main Commit `27b9b01`** —— `git checkout 27b9b01` 可复现 npm `dsh-rule-engine@0.6.4` 与 GitHub Release v0.6.4 同源代码。三通道结果：**npm publish ✅**（`+ dsh-rule-engine@0.6.4`，tag latest）/ **git push ✅**（`8ab6a40..27b9b01`）/ **Release ✅**（v0.6.4）。
 
 - **0.6.3（当前）** 固定于 main Commit `3e87f9d`（`git checkout 3e87f9d` 可复现 npm `dsh-rule-engine@0.6.3` 与 GitHub Release v0.6.3 同源代码——0.6.3 = 分层残留闸 `dualtrack-check`（判据 A：中文≠个人化）+ 词表全量配置化（lexicons / patterns / criticismPersonal / dualtrack 走 `rule-engine.json`）+ 第三批第 1 批文案层 + 三项门禁修复（`--init` 覆盖保护 / loader-smoke 中文夹具 / 中文目录顿号兼容）。
 - **0.6.2** 固定于 main Commit `92da194538fce2f56fa7c6712c70711865772686`（`git checkout 92da194538fce2f56fa7c6712c70711865772686` 可复现 npm `dsh-rule-engine@0.6.2` 与 GitHub Release v0.6.2 同源代码——0.6.2 = 0.1.2-rc.1 适配（Remote 新合同 `Remote(undefined, …)` / peer 锚扩 `>=0.1.2-rc.0`）+ 白名单 3 轮扩充 + Do- 结构词回归修复 + E7 豁免预插机制上线）。
