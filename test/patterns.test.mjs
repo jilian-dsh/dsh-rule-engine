@@ -191,6 +191,56 @@ assert.equal(isReadOnlyCommand("npm ls -g"), true, "npm ls 只读放行");
 assert.equal(isReadOnlyCommand("git log --stat | Set-Content out.txt"), false, "管道写文件不豁免");
 assert.equal(isReadOnlyCommand("Get-Date -Format 'yyyy-MM-dd'"), true, "Get-Date 只读放行");
 
+// ── F5（2026-09-10 修复；第三方实测四例 ERR-4WOAKG/9T886X/Z8M7YC/IKXLU8）──
+// 根因：splitCommandSegments 裸拆 `|`，把**引号内的 `|`**（正则 alternation / 格式串）当段分隔符
+// → 切出无法识别的残段 → 逐段都必须只读的判定失败 → 整条只读命令被判「写」。
+{
+  assert.equal(
+    isReadOnlyCommand("Select-String -Path x.log -Pattern 'steer|inject|cancel'"),
+    true, "F5-1 单引号内 | 不拆段（ERR-Z8M7YC 形态）"
+  );
+  assert.equal(
+    isReadOnlyCommand('Get-ChildItem "D:\\a" -Recurse -Include *.log,*.jsonl -File | Where-Object { $_.FullName -notmatch \'node_modules|sessions\' } | Select-Object -First 5'),
+    true, "F5-2 -notmatch 'x|y' 不拆段（ERR-9T886X 形态）"
+  );
+  assert.equal(
+    isReadOnlyCommand('Get-ChildItem "D:\\a" | Select-Object @{n=\'P\';e={"{0} | x" -f $_.Name}}'),
+    true, "F5-3 双引号内 | 不拆段（ERR-IKXLU8 格式串形态）"
+  );
+  assert.equal(
+    isReadOnlyCommand("Get-Content x | Where-Object { $_ -match 'a\\|b' }"),
+    true, "F5-4 引号内转义 | 不拆段"
+  );
+  assert.equal(
+    isReadOnlyCommand('Write-Host "=== a ===" ; Get-ChildItem "D:\\a" -Force | Where-Object { $_.PSIsContainer }'),
+    true, "F5-5 多段只读链（ERR-4WOAKG 形态）"
+  );
+  // 负例：引号外真管道写 / 管道内写命令 —— 修 bug 不得变成放水
+  assert.equal(
+    isReadOnlyCommand("Get-Content \"a\" -Pattern 'x|y' | Set-Content out.txt"),
+    false, "F5-6 引号内有 | 但管道后是真写 → 仍判变更（关键负例）"
+  );
+  assert.equal(
+    isReadOnlyCommand("Get-ChildItem | ForEach-Object { Remove-Item $_.FullName }"),
+    false, "F5-7 管道内 Remove-Item 仍判变更"
+  );
+  assert.equal(isReadOnlyCommand("echo x > out.txt"), false, "F5-8 重定向仍判变更");
+}
+
+// ── F5b（2026-09-10）：`Remove-Item Env:NAME`（进程环境变量，非文件）豁免；边界保守 ──
+{
+  assert.equal(
+    isReadOnlyCommand("Remove-Item Env:HTTPS_PROXY -ErrorAction SilentlyContinue"),
+    true, "F5b-1 Env: 作用域删除 = 只读（ERR-JCSE3O 形态）"
+  );
+  assert.equal(isReadOnlyCommand("Remove-Item $env:HTTP_PROXY"), true, "F5b-2 $env: 形式 = 只读");
+  assert.equal(isReadOnlyCommand("Remove-Item Env:a; Remove-Item Env:b"), true, "F5b-3 多段均 Env: = 只读");
+  assert.equal(isReadOnlyCommand("Remove-Item D:/x"), false, "F5b-4 文件删除仍拦");
+  assert.equal(isReadOnlyCommand('Remove-Item Env:X, "D:\\y.txt"'), false, "F5b-5 混合目标仍拦");
+  assert.equal(isReadOnlyCommand("Remove-Item -Force Env:X"), false, "F5b-6 选项在目标前 → 保守不豁免");
+  assert.equal(isReadOnlyCommand("Remove-Item 'D:\\a\\b.txt'"), false, "F5b-7 引号路径删除仍拦");
+}
+
 // ── 2026-08-24：机制批 M4 内联危险判定（diag-run 受控诊断工具）──
 import { isDangerousInlineNode } from "../lib/core/patterns.js";
 assert.equal(isDangerousInlineNode("console.log(1 + 1)"), false, "纯只读表达式 → 不危险");
