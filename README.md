@@ -1,11 +1,13 @@
 # dsh-rule-engine
 
 ![npm](https://img.shields.io/npm/v/dsh-rule-engine)
-![version](https://img.shields.io/badge/version-0.6.3-blue)
+![version](https://img.shields.io/badge/version-0.6.4-blue)
 
-DSH 规则执行引擎 v3 的插件实现。它把 `~/.dsh/AGENTS.md` 当作唯一真相源，自动解析规则四要素与执行等级，再通过「工具守卫 + 文本检测 + 时序检查 + 审计台账」执行用户规则，而不是内置一套与用户无关的安全清单。
+DSH 规则执行引擎 v3 的插件实现。它把 `~/.dsh/AGENTS.md` 当作唯一真相源，自动解析规则四要素与执行等级，再通过「工具守卫 + 文本检测 + 时序检查 + 审计台账」执行用户规则，而不是内置一套与用户无关的安全清单。**当前版本 0.6.4**（**适用环境：DSH `0.1.5-rc.2`**——本机实测：装配成功 + 冷加载探针 PASS + `npm test` ALL TESTS PASSED + `npm run verify` 13 层全绿；兼容声明面见 `package.json` 的 `dshCompat`：`>=0.1.0-rc.3 <0.2.0`，覆盖 0.1.5 线）。本版三项修复：**D2**（待决 ask 提升为会话级——修复"用户消息与 ask 答复并发"致授权全部未登记）+ **B1/C1**（规则 24 官方 bundle 豁免兑现；装配不一致的收敛豁免）+ **A2**（ask 授权登记改复数路径、`authMatches` 支持多路径匹配）。
 
 > 当前版本 **0.6.3**（0.1.2-rc.1 适配：Remote 新合同（typert-protocol `Remote(undefined, …)` 形态，typeof-null 陷阱修复）+ peer 锚扩 `>=0.1.2-rc.0`；白名单 3 轮扩充（gh 只读态 / `gh api` 只读 / `git ls-remote` / `cmdkey /list` + Do- 结构词回归修复）；E7 豁免预插（release-plugin bump 后自动追加 pnpm minimumReleaseAgeExclude——⑬ 口径防发布后红灯窗口，单源 `scripts/lib/pnpm-exempt.mjs`））。本插件面向"规则机器化执行"：规则写在 AGENTS.md 里，引擎负责让它们真的被遵守；所有规则动态解析，规则增删改后无需重写插件。
+>
+> **0.6.4（最新；取代上行版本号）**——**适用环境验证：DSH `0.1.5-rc.2`**（本机实测：装配成功 + 冷加载探针 PASS + `npm test` ALL TESTS PASSED + `npm run verify` 13 层全绿；兼容声明面见 `package.json` 的 `dshCompat`：`>=0.1.0-rc.3 <0.2.0`，覆盖 0.1.5 线）。本版三项修复：**D2**（待决 ask 提升为会话级——修复"用户消息与 ask 答复并发"致授权全部未登记）+ **B1/C1**（规则 24 官方 bundle 豁免兑现；装配不一致的收敛豁免——守卫不再拦下唯一能收敛的动作）+ **A2**（ask 授权登记改复数路径、`authMatches` 支持多路径匹配——修复"多路径只取一个、取最长取到次要路径"）。
 
 ## 项目背景
 
@@ -241,6 +243,8 @@ console.log(qualityTrend(sig).summary);   // 方向：rework 改善 / 持平 / �
 > 更早版本（0.1.0-0.5.5）与本机历史要点见 git 历史；各版本内部"用户定稿"等决策细节不再随发布物携带。
 
 | 版本 | 日期 | 要点 |
+|---|---|---|
+| **0.6.4** | 2026-09-10 | **本版**：**D2**（待决 ask 提升为会话级——修复"用户消息与 ask 答复并发"致授权全部未登记）+ **B1/C1**（规则 24 官方 bundle 豁免兑现；装配不一致的收敛豁免——守卫不再拦下唯一能收敛的动作）+ **A2**（ask 授权登记改复数路径、`authMatches` 支持多路径匹配）。**适用环境验证 = DSH `0.1.5-rc.2`**（装配 + 冷加载探针 + `npm test` + `verify` 13 层全绿） |
 | **0.6.3** | 2026-09-09 | docs(readme): 词表配置章节补齐 dualtrack（markers/whitelist/加载优先级/空表 REFUSED） |
 | **0.6.2** | 2026-09-08 | fix(0.6.2): whitelist 3-round + 0.1.2 adaptation + peer-anchor 0.1.2 + E7 pre-plug wiring  |
 |---|---|---|
@@ -261,6 +265,8 @@ console.log(qualityTrend(sig).summary);   // 方向：rework 改善 / 持平 / �
 | **0.5.6** | 2026-08-26 | 同回复聚合注入、已自证规则不重复触发、C2 规则统计（detected/suppressed/injected） |
 
 ## 发行固定源
+
+> **0.6.4（当前）** —— 本版三项修复：**D2**（待决 ask 提升为会话级）/ **B1/C1**（规则 24 官方 bundle 豁免兑现 + 装配不一致的收敛豁免）/ **A2**（ask 授权登记改复数路径 + `authMatches` 多路径匹配）。**适用环境验证 = DSH `0.1.5-rc.2`**（装配 + 冷加载探针 + `npm test` + `verify` 13 层全绿）。**发布 commit 待三通道完成后回填**（届时 `git checkout <hash>` 可复现 npm `dsh-rule-engine@0.6.4` 与 GitHub Release v0.6.4 同源代码）。
 
 - **0.6.3（当前）** 固定于 main Commit `3e87f9d`（`git checkout 3e87f9d` 可复现 npm `dsh-rule-engine@0.6.3` 与 GitHub Release v0.6.3 同源代码——0.6.3 = 分层残留闸 `dualtrack-check`（判据 A：中文≠个人化）+ 词表全量配置化（lexicons / patterns / criticismPersonal / dualtrack 走 `rule-engine.json`）+ 第三批第 1 批文案层 + 三项门禁修复（`--init` 覆盖保护 / loader-smoke 中文夹具 / 中文目录顿号兼容）。
 - **0.6.2** 固定于 main Commit `92da194538fce2f56fa7c6712c70711865772686`（`git checkout 92da194538fce2f56fa7c6712c70711865772686` 可复现 npm `dsh-rule-engine@0.6.2` 与 GitHub Release v0.6.2 同源代码——0.6.2 = 0.1.2-rc.1 适配（Remote 新合同 `Remote(undefined, …)` / peer 锚扩 `>=0.1.2-rc.0`）+ 白名单 3 轮扩充 + Do- 结构词回归修复 + E7 豁免预插机制上线）。
