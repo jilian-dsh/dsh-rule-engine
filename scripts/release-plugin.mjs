@@ -12,7 +12,7 @@
 //       -> git commit+push -> gh release（带 tgz asset）
 // 安全：token 经环境变量注入，不在命令文本/日志中打印
 import { execSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync, mkdirSync, copyFileSync, renameSync, statSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync, copyFileSync, statSync, rmSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ensureExempt } from "./lib/pnpm-exempt.mjs";
@@ -424,28 +424,6 @@ if (syncProfile) {
     console.log(out.split("\n").filter((l) => /RESULT|DUPLICATES|MOUNT|summary/.test(l)).join("\n"));
     if (!pass) fail("装配审计未通过（MOUNT CONSISTENT 未出现），请先处理再重启 DSH");
     console.log("装配审计 MOUNT CONSISTENT ✓");
-  }
-}
-
-// ── 8. 发布产物归置（2026-09-11 用户指示：tgz 归置属发布流程的一部分，不再每次人工问）──
-// 口径（dsh-project\README.md §十）：npm pack 产物（*.tgz）不入库；历史发布 tarball 统一归置
-//   dsh-project\archive\release-tarballs-<YYYYMMDD>\（按发布日分批）。
-// 动机：此前每次发布都留一个 <name>-<ver>.tgz 在插件目录 → manual-health ⑧ 报「卫生散落」→
-//   每次都要人工判断归置位置（0.6.4 已是第二次）。自动化后发布即归位，消除该重复劳动。
-{
-  const tgz = join(dir, `${name}-${nextVer}.tgz`);
-  if (existsSync(tgz)) {
-    // dsh-project 根 = 引擎仓库 scripts/ 上推四级（scripts → <pkg> → oss → projects → dsh-project）
-    const projectRoot = resolve(SCRIPT_DIR, "..", "..", "..", "..");
-    const day = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-    const archiveDir = join(projectRoot, "archive", `release-tarballs-${day}`);
-    mkdirSync(archiveDir, { recursive: true });
-    const dest = join(archiveDir, `${name}-${nextVer}.tgz`);
-    if (existsSync(dest)) rmSync(dest);
-    renameSync(tgz, dest);
-    console.log(`\n=== 发布产物归置 ===\n${name}-${nextVer}.tgz → archive/release-tarballs-${day}/（README §十 口径）`);
-  } else {
-    console.log(`\n（未发现 ${name}-${nextVer}.tgz，跳过归置——可能已被手工移动）`);
   }
 }
 
