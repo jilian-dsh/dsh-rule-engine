@@ -2,6 +2,13 @@
 import assert from "node:assert/strict";
 import { needsLlmEnrich, verdictForDeny } from "../lib/core/llm-intent.js";
 import { parseUserIntents } from "../lib/core/intent.js";
+import { useChineseLexicons } from "./helpers.mjs";
+
+// 2026-09-13：补自包含夹具。run-all 在每个测试前注入中文词表（run-all.mjs L118），
+// 但单独运行本文件时没有注入 → 依赖 action_words / statusSignal 的断言必假红
+// （"请继续"/"我已重启" 会判成 info → needsLlmEnrich 得 true）。断言一字未动，
+// 只补前序注入；与 lexicon-config.test.mjs L138 同款做法。
+useChineseLexicons();
 
 const CFG = { thresholdHigh: 0.8, thresholdLow: 0.5, cacheSize: 10 };
 
