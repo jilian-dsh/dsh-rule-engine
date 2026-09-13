@@ -109,7 +109,9 @@ const tests = [
   // D2 修复（2026-09-10）：待决 ask 跨回合存活 + 授权登记（独立 DSH_HOME 试点反馈 ERR-M9Z47H）——固定末尾
   "./ask-pending-survives-turn.test.mjs",
   // B1+C1（2026-09-10）：官方 bundle 豁免 + 装配不一致死循环的收敛豁免——固定末尾
-  "./b1c1-convergence.test.mjs"
+  "./b1c1-convergence.test.mjs",
+  // D（2026-09-13）：M8 提示前移到 tool/result（自设 DSH_HOME + import index.js）——固定末尾
+  "./m8-hint.test.mjs"
 ];
 
 for (const t of tests) {
