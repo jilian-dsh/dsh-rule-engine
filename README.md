@@ -127,6 +127,7 @@ DSH 规则执行引擎 v3 的插件实现。它把 `~/.dsh/AGENTS.md` 当作唯�
 - **正则键**：值是正则 source 字符串，如 `"time_words": "今天|昨天|刚才"`；
 - **映射键** `self_cert_hints`：值是对象 `{ "14": "总结|汇报", "31": "撞墙|盲试" }`（键=规则编号）；
 - **数值键** `criticism_caps_ratio`：0–1 的阈值（英文全大写比率，默认 0.6）。
+- **数值键** `criticism_caps_min_tokens`（默认 2）／`criticism_caps_min_word_len`（默认 4）：**词形大写**判据——只有「连续字母 ≥ min_word_len」的 token、且其数量 ≥ min_tokens 时才计比率；编号标签 `A1`/`B5` 与短缩写 `ESR`/`DSH` 因此不再被判"喊叫"（2026-09-15 收紧，见手册踩坑 144）。
 
 ```json
 {

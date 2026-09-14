@@ -15,7 +15,7 @@ import {
   setPatterns,
   resetPatterns
 } from "../lib/core/patterns.js";
-import { criticismSignals, hasExplicitExecWord, hasHighCapsRatio, setCriticismPersonal } from "../lib/core/text-detect.js";
+import { criticismSignals, hasExplicitExecWord, hasHighCapsRatio, hasShoutingWordShape, setCriticismPersonal } from "../lib/core/text-detect.js";
 import { useChinesePatterns } from "./helpers.mjs";
 
 useChinesePatterns();
@@ -34,6 +34,20 @@ useChinesePatterns();
   assert.equal(criticismSignals("麻烦看一下这个文件").suspect, null, "中性请求 → 无信号");
   setCriticismPersonal([]);
   assert.equal(criticismSignals("示例辱骂词").suspect, null, "清空个人词后不命中（发布面恒空）");
+}
+
+// ── ①b 标识符回归（2026-09-15，踩坑 144 修法 (b) 收紧档）：编号标签／缩写不得判"喊叫" ──
+{
+  const labels = "继续执行A1→A3→A2→A4→B5→B6→D 提交";
+  assert.equal(hasHighCapsRatio(labels), true, "纯比率函数仍会命中（保留导出，配置层复用）");
+  assert.equal(hasShoutingWordShape(labels), false, "词形判据：编号标签不算喊叫（连续字母不足 4）");
+  assert.equal(criticismSignals(labels).suspect, null, "编号标签消息 → 无信号（修复前为 strong，误冻结写类工具）");
+  assert.equal(hasShoutingWordShape("看下 ESR 与 DSH 的报告"), false, "3 字母缩写不算喊叫");
+  assert.equal(hasShoutingWordShape("ESR ESR"), false, "两个 3 字母缩写仍不算（词长不足）");
+  assert.equal(hasShoutingWordShape("EXAMPLE ALL CAPS SENTENCE"), true, "多词全大写仍判喊叫（信号未退役）");
+  assert.equal(hasShoutingWordShape("ABCDEF"), false, "单个 token 不算（词形 token 数 < 2）");
+  assert.equal(hasShoutingWordShape("This is a Normal sentence"), false, "大小写混排不算");
+  assert.equal(criticismSignals("!!!!! 你说什么呢").suspect, "strong", "连续叹号路径不受影响");
 }
 
 // ── ② 行为闸三态：强信号冻结写类工具 / 弱信号不冻结 / 无信号放行 ──
