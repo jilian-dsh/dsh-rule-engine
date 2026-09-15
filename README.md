@@ -204,6 +204,17 @@ DSH 规则执行引擎 v3 的插件实现。它把 `~/.dsh/AGENTS.md` 当作唯�
 
 按签名查询趋势（同签名 = 同类任务）：
 
+**方式一（最快）**——在输入框里直接查（`/guard quality` 查询入口，2026-09-15 批 3 补：机制早已在、此前却没有任何查询入口）：
+
+```
+/guard quality
+```
+
+列出「每类签名各多少单 ＋ 趋势摘要」；账本**未开启或无记录时如实说明**（不会编造趋势）。
+本机侧另有旁路工具 `scripts/quality-ledger.mjs`（`record` / `trend` / `list`，**复用本机制、不复制实现**）。
+
+**方式二（代码）**：
+
 ```js
 import { taskSignature, qualityTrend } from "dsh-rule-engine/lib/core/quality-ledger.js";
 const sig = taskSignature("给插件加一个设置项", ["npm test 全绿"]);

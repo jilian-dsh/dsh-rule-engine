@@ -61,7 +61,9 @@ export const TEST_PATTERNS_ZH = {
   promise_words: "包在我身上|肯定能|绝对没问题|保证(?!不|无法)|一定可以|放心(?:，|,)?肯定|万无一失",
   source_mark: "来源|出处|via|source|reference|引自|参考",
   domain_words: "DSH|dsh|插件|技能|规则|配置|迁移|手册|会话|装配|profile|bundle",
-  plan_instruction: "方案|调整|补充|建议|评估|草案|完善|优化|改进|提炼|重构|梳理",
+  // C4-M7（批 3，2026-09-15）：「补充」移出方案词表——它是**动作词**（action_words 本就含 `补(?:上|齐|全|充|写)?`），
+  // 留在方案词表里会让「补充一下 X」被误判成"要方案" → 多提醒一次 approval-gap（用户被无谓打扰）。
+  plan_instruction: "方案|调整|建议|评估|草案|完善|优化|改进|提炼|重构|梳理",
   write_instruction: "落盘|写入|发布|正式写入|正式落盘|改为|改成|保存到手册|写进手册|确定为|确认后(?:落盘|写入|发布)",
   execute_action: "执行|推进|实施|开始|落实|继续|启动|办理|开展|落地|操作|运行",
   tech_term:

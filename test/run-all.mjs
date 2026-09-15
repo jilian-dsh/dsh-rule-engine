@@ -97,6 +97,8 @@ const tests = [
   "./detect-config.test.mjs",
   // 第三批质量账本（2026-09-09）：签名确定性/落盘格式/窗口对比/默认关——固定末尾
   "./quality-ledger.test.mjs",
+  // C4（批 3，2026-09-15）：/guard quality 查询入口（解析白名单 + COMMAND_SPECS 单一真源登记）——固定末尾
+  "./guard-quality.test.mjs",
   // 第三批第 1 波（2026-09-09）：首启语言探测（纯函数）——固定末尾
   "./lang.test.mjs",
   // 第三批清淤 1a（2026-09-09）：文案层机制（取词/覆盖/插值/缺键可见）——固定末尾

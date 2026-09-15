@@ -76,10 +76,21 @@ const SAMPLES = {
   paraphrase_mark_after: ["改成", "改为", "换成", "转述", "引用", "随便"]
 };
 
-// ── 用例 1：迁移前基线 vs 迁移后实现 —— 全键 × 全样本逐条一致 ──
+// ── 有意分叉登记（C4-M7，批 3，2026-09-15）──
+// 本表登记「与迁移前基线**有意**分叉」的键：等价性证明（用例 1 全样本比对、用例 2 逐字一致）对这些键**豁免**。
+// 豁免必须写明日期与原因——它是**记录**，不是删除：
+//   · 不篡改 LEGACY（它是"迁移前基线"这一历史事实，改了就等于毁掉等价性证明本身）；
+//   · 新行为由 test/patterns.test.mjs 的 C4-M7 断言单独守护
+//     （「补充一下这个章节」不提醒 ／「给我一个补充方案」仍提醒 ／「请调整并补充这段」仍提醒）。
+const INTENTIONAL_DIVERGENCE = {
+  plan_instruction: "C4-M7（2026-09-15）移除「补充」——它是动作词（action_words 本就含 `补(?:上|齐|全|充|写)?`），留在方案词表会让「补充一下 X」被误判为要方案而多提醒一次 approval-gap"
+};
+
+// ── 用例 1：迁移前基线 vs 迁移后实现 —— 全键 × 全样本逐条一致（有意分叉键除外）──
 useChinesePatterns();
 let compared = 0;
 for (const key of Object.keys(LEGACY)) {
+  if (INTENTIONAL_DIVERGENCE[key]) continue;
   const before = new RegExp(LEGACY[key], "i");
   const after = patRe(key);
   for (const s of SAMPLES[key]) {
@@ -92,7 +103,10 @@ console.log(`检测正则等价性（${Object.keys(LEGACY).length} 键 × ${comp
 // ── 用例 2：注入后生效 source 与基线逐字一致 ──
 {
   const eff = effectivePatterns();
-  for (const key of Object.keys(LEGACY)) assert.equal(eff[key], LEGACY[key], `生效 source 不一致：${key}`);
+  for (const key of Object.keys(LEGACY)) {
+    if (INTENTIONAL_DIVERGENCE[key]) continue; // 有意分叉键（见上表）：不参与逐字一致比对
+    assert.equal(eff[key], LEGACY[key], `生效 source 不一致：${key}`);
+  }
   assert.equal(Object.keys(TEST_PATTERNS_ZH).length, PATTERN_KEYS.length, "夹具正则键数应等于 PATTERN_KEYS");
   // 小批 C：A″ 形态键存在且强形态为语言无关默认
   assert.ok(PATTERN_KEYS.includes("criticism_shape") && PATTERN_KEYS.includes("criticism_weak"), "A″ 形态键应在 PATTERN_KEYS");

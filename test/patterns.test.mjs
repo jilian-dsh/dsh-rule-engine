@@ -267,6 +267,13 @@ assert.equal(needsApprovalReminder("落盘到手册", { askApproved: true }), fa
 assert.equal(needsApprovalReminder("按第三方的建议按顺序执行修改"), false, "建议+执行并存 → 豁免（执行语）");
 assert.equal(needsApprovalReminder("根据建议推进批次二"), false, "建议+推进 → 豁免");
 assert.equal(needsApprovalReminder("请调整方案"), true, "纯方案性 → 仍提醒");
+// ── C4-M7（批 3，2026-09-15）：「补充」是动作词，不该当方案性指令词 ──
+// 实证：action_words（lexicon）里本就有 `补(?:上|齐|全|充|写)?` → 「补充」属执行语；
+// 而 plan_instruction 原含「补充」→ 用户说「补充一下 X」被判成"要方案" → 多提醒一次 approval-gap。
+// 正解＝从 plan_instruction **移除**「补充」（而非塞进 execute_action——后者会让"补充方案"也不再提醒，属漏报）。
+assert.equal(needsApprovalReminder("补充一下这个章节"), false, "「补充」＝执行语 → 不提醒（C4-M7）");
+assert.equal(needsApprovalReminder("给我一个补充方案"), true, "含「方案」仍属方案性 → 仍提醒（反向锁）");
+assert.equal(needsApprovalReminder("请调整并补充这段"), true, "含「调整」仍属方案性 → 仍提醒（反向锁）");
 
 // ── 0.5.11：低风险新建豁免 = 目标尚不存在（用户定稿）──
 import { isLowRiskWorkspaceNew, setWorkspaceRoot, isOutsideWorkspace } from "../lib/core/patterns.js";

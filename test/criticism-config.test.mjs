@@ -16,6 +16,7 @@ import {
   resetPatterns
 } from "../lib/core/patterns.js";
 import { criticismSignals, hasExplicitExecWord, hasHighCapsRatio, hasShoutingWordShape, setCriticismPersonal } from "../lib/core/text-detect.js";
+import { setLexicons, resetLexicons } from "../lib/core/lexicon.js";
 import { useChinesePatterns } from "./helpers.mjs";
 
 useChinesePatterns();
@@ -166,6 +167,36 @@ useChinesePatterns();
   // 强信号不受反向检查影响：含执行词也仍走行为闸
   assert.equal(criticismSignals("你疯了吗？？？？请写一份报告").suspect, "strong", "强信号仍判 strong（执行词不降级）");
   assert.equal(hasExplicitExecWord("你疯了吗？？？？请写一份报告"), true, "反向检查命中但不影响强信号冻结");
+}
+
+// ── ⑥ C3（批 3，2026-09-15，用户裁定方案 A）：批评 + 明确指令的混合消息不得把指令一起冻掉 ──
+// 背景：置位逻辑原对强弱信号**不对称**——弱信号已做反向检查（hasExplicitExecWord），
+// 强信号无条件冻结 → 「批评 + 明确指令」会把用户同时下达的指令一起冻掉（而那条指令本身是完整授权）。
+// 判据（方案 A）：强信号下只有**完整执行许可**（许可词 + 执行语，approvalExecRe）才豁免——
+// 比弱信号的反向检查（只认动作词）更严，避免「批评里提个动作词就算授权」的过宽。
+{
+  // 本用例走 approvalExecRe（许可词 + 执行语），而本测试进程用的是**临时 DSH_HOME**（不读本机配置）
+  // → 不显式注入就等于拿内置**英文**最小集去判中文样本，正例恒不命中（假红）。
+  // 故在此注入与真配置同形的中文最小集（真词表见 .dsh/rule-engine.json 的 lexicons 键）。
+  // 注：**必须自带分组** `(?:…)`——派生键 approval_exec 由 `${approval}[^\n]{0,16}${exec_follow}`
+  // 直接拼接（lexicon.js 的 resolveSource），若子键不带分组，`|` 的最低优先级会让最后一支脱离拼接，
+  // 例如 `好|可以[^\n]{0,16}改|修|做` 里「做」会单独成立 → 任意含"做"的消息都被判成完整执行许可。
+  // 本机真配置（.dsh/rule-engine.json）的 approval/exec_follow 均带分组，此注入与之同形。
+  setLexicons({ approval: "(?:确认|同意|好|可以)", exec_follow: "(?:改|修|做|落盘|执行)" });
+  const { criticismFreezeBySignal: bySignal } = await import("../lib/index.js");
+  assert.equal(typeof bySignal, "function", "criticismFreezeBySignal 应为导出函数（C3 抽出的纯函数）");
+  // 正例：强信号 + 完整执行许可（许可词「确认」+ 执行语「改掉」）→ 不冻结
+  assert.equal(
+    bySignal("strong", "你这做的什么玩意！！！确认，把那行配置改掉"),
+    false,
+    "★ 强信号 + 完整执行许可 → 不冻结（C3 修复点；实现前该函数不存在 → 必红）"
+  );
+  // 反向锁 1：只有动作词、没有许可词 ≠ 授权 → 仍冻结
+  assert.equal(bySignal("strong", "你这做的什么玩意！！！改掉"), true, "只有动作词不算授权 → 仍冻结");
+  // 反向锁 2：纯批评、无任何指令 → 仍冻结
+  assert.equal(bySignal("strong", "你这做的什么玩意！！！"), true, "纯批评 → 仍冻结");
+  // 弱信号路径不变（既有后果分级：从不冻结）
+  assert.equal(bySignal("weak", "确认，改掉"), false, "弱信号从不冻结（既有分级不变）");
 }
 
 console.log("criticism-config.test.js PASS");
