@@ -97,4 +97,33 @@ function makeHarness(sid) {
   assert.equal(h.injections.length, 0, "同回合已先 engram_store → 其后的落盘不再提示");
 }
 
+// ── C1（批 3，2026-09-15）：干跑／失败**不得**置位落盘标记 ──
+// 原判据只看「命令文本含 entryMarker」（lib/index.js 的 M8 段），不看是否真的落盘成功 →
+// `--dry-run`、写夹具目录、脚本中途失败（只要工具层未标 isError）都会置位 manualWriteSeen，
+// 进而于 turn/end 判 `__engram-gap` 并要求同回合 engram_store（本会话实证：dry-run 亦被提示）。
+// 判据收紧为「命令含 entryMarker **且** 结果文本含 MANUAL_WRITE_OK」（统一入口成功标志）。
+{
+  state.localIntegrations = { m8: { enabled: true, entryMarker: "example-manual-write.mjs", hintOnWrite: true } };
+  const h = makeHarness("m8c1-dry");
+  h.fire("user/message", { content: [{ type: "text", text: "落盘手册" }], role: "user", id: "m-dry", surfaceOp: "append" });
+  h.fire("tool/call", { name: "pwsh", callId: "c1dry", arguments: { command: ENTRY_CMD + " --dry-run" } });
+  h.fire("tool/result", {
+    callId: "c1dry",
+    message: { content: [{ type: "tool-result", toolCallId: "c1dry", content: [{ type: "text", text: "DRY-RUN: 将应用 2 处编辑（不写入）" }] }] }
+  });
+  await new Promise((r) => setTimeout(r, 60));
+  assert.equal(
+    h.injections.length,
+    0,
+    "★ 干跑（结果无 MANUAL_WRITE_OK）不得置位落盘标记、不得提示（C1 修复点；实现前此处为 1 → 必红）"
+  );
+
+  // 反向锁（防收紧过头）：真落盘（结果含 MANUAL_WRITE_OK）仍须标记并提示一次。
+  // 用独立会话，避免「同会话同规则投递上限」干扰判定。
+  const h2 = makeHarness("m8c1-ok");
+  h2.runEntryWrite("c1ok");
+  await new Promise((r) => setTimeout(r, 60));
+  assert.equal(h2.injections.length, 1, "真落盘（有 MANUAL_WRITE_OK）仍须提示一次——防判据收紧过头");
+}
+
 console.log("m8-hint.test.mjs PASS");

@@ -81,6 +81,33 @@ useChinesePatterns();
   // 弱信号 / 无信号：不冻结
   assert.equal(freeze(notFrozen, "write", { file_path: "D:/tmp/a.txt" }), null, "弱信号回合不冻结");
   assert.equal(freeze(null, "write", { file_path: "D:/tmp/a.txt" }), null, "无 session 不冻结");
+
+  // ── C2-C 档（批 3，2026-09-15）：/guard bypass 窗口内 A″ 必须让步 ──
+  // 依据：/guard bypass 的语义是「全部守卫暂停」（guard status 文案原文），但 A″ 冻结闸此前
+  // 只查 turn.criticismFrozen、不检查 state.bypassUntil → 用户显式放行后仍被冻结（语义不一致）。
+  // 设计：bypassActive 由调用方从 state.bypassUntil 计算后传入（本函数保持纯函数、可单测）；
+  // bypass 窗口内的留痕由 guard 路径既有的 bypass-action 审计统一负责（M2），此处不重复记。
+  assert.equal(
+    freeze(frozen, "write", { file_path: "D:/tmp/a.txt" }, { bypassActive: true }),
+    null,
+    "★ bypass 窗口内写类工具应放行（C2-C 修复点；实现前此处返回拒绝文本 → 必红）"
+  );
+  assert.equal(
+    freeze(frozen, "pwsh", { command: "Set-Content D:/tmp/a.txt x" }, { bypassActive: true }),
+    null,
+    "bypass 窗口内写命令同样放行"
+  );
+  assert.equal(
+    freeze(frozen, "read", { file_path: "D:/tmp/a.txt" }, { bypassActive: true }),
+    null,
+    "bypass 窗口内只读工具照常放行"
+  );
+  // 反向锁（防放行过宽）：非 bypass 窗口仍须冻结
+  assert.equal(
+    typeof freeze(frozen, "write", { file_path: "D:/tmp/a.txt" }, { bypassActive: false }),
+    "string",
+    "非 bypass 窗口仍须冻结（防 C2-C 改宽）"
+  );
 }
 
 // ── ③ 形态可配置（通用层内置默认可覆盖）──

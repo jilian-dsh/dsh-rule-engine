@@ -173,7 +173,9 @@ fire2("user/message", {
         {
           type: "tool-result",
           toolCallId: "c1",
-          content: [{ type: "text", text: "ok" }]
+          // C1（批 3，2026-09-15）：M8 判据已收紧为「命令含 entryMarker **且结果文本含落盘成功标志**」，
+          // 故此处必须给出统一入口的成功标志（原为 "ok"——在新判据下不会置位 manualWriteSeen）。
+          content: [{ type: "text", text: "MANUAL_WRITE_OK" }]
         }
       ]
     }
