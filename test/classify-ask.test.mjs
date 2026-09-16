@@ -16,7 +16,7 @@ test("含糊/纯只读 → any（无命中保守兜底）/ analysis（只读提�
   assert.equal(classifyAskScopeType("可以"), "any");
   assert.equal(classifyAskScopeType("允许查看该报告"), "analysis");
 });
-// 2026-09-07（E3）：git 类（内置 TYPE_HINTS L39 git push|commit/提交/推送）——不再 write/any 误映射；"git commit" 连写命中
+// 2026-09-07（E3）：git 类（内置 TYPE_HINTS 的 git 类条目：git push|commit/提交/推送）——不再 write/any 误映射；"git commit" 连写命中
 test("git 类答复 → git（非 write/any）", () => {
   assert.equal(classifyAskScopeType("允许 git commit"), "git");
   assert.equal(classifyAskScopeType("允许 git commit 吗（允许 git commit）"), "git");

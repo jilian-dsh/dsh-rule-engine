@@ -13,7 +13,7 @@ setWorkspaceRoot("D:\\example workspace\\dsh-project");
 
 // 2026-08-31（遗留项修复）：固定隔离 DSH_HOME，且目录真实创建——
 // 此前依赖前置测试残留的环境状态（index.js 加载刻的 DSH_HOME 可能是已被删除的随机临时目录），
-// audit() 的 appendFileSync 写失败被 catch 静默吞掉（audit.js L24），mount-audit-error 断言
+// audit() 的 appendFileSync 写失败被 catch 静默吞掉（见 audit.js 的写失败分支），mount-audit-error 断言
 // 读"最近 N 条"恒红（环境既有失败）。固定目录 + 创建 → 写/读同源、无滚动。
 const INTEG_HOME = join(tmpdir(), "dsh-rule-engine-integration-test");
 mkdirSync(INTEG_HOME, { recursive: true });
