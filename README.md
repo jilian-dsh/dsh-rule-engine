@@ -279,7 +279,7 @@ console.log(qualityTrend(sig).summary);   // 方向：rework 改善 / 持平 / �
 
 ## 发行固定源
 
-- **0.6.5（当前）** 固定于 main Commit `7e7fe38`（`git checkout 7e7fe38` + 发布 bump 可复现 npm `dsh-rule-engine@0.6.5` 与 GitHub Release v0.6.5 同源代码）。**注：release 提交号由发布脚本自动回填。**
+- **0.6.5（当前）** 固定于 main Commit `273f3ed`（`git checkout 273f3ed` 可复现 npm `dsh-rule-engine@0.6.5` 与 GitHub Release v0.6.5 同源代码）。
 
 > **0.6.4** —— 本版三项修复：**D2**（待决 ask 提升为会话级）/ **B1/C1**（规则 24 官方 bundle 豁免兑现 + 装配不一致的收敛豁免）/ **A2**（ask 授权登记改复数路径 + `authMatches` 多路径匹配）。**适用环境验证 = DSH `0.1.5-rc.2`**（装配 + 冷加载探针 + `npm test` + `verify` 13 层全绿）。**发布 commit 待三通道完成后回填**（届时 `git checkout <hash>` 可复现 npm `dsh-rule-engine@0.6.4` 与 GitHub Release v0.6.4 同源代码）。
 >
