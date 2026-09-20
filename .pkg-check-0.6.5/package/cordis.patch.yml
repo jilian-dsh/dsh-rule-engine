@@ -1,9 +1,0 @@
-# dsh-rule-engine bundle 配置层
-# 按官方 bundle 规范：插件行按包名引用，由 Node 模块解析定位已安装代码。
-- insert:
-    - id: dsh-rule-engine
-      name: 'dsh-rule-engine'
-    - id: dsh-rule-engine-service
-      name: 'dsh-rule-engine/lib/service.js'
-    - id: dsh-rule-engine-client
-      name: 'dsh-rule-engine-client'
