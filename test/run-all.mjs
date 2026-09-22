@@ -146,7 +146,9 @@ const tests = [
   // 域 3 第二枪（2026-09-22）：注入文案命令词（injectCommand）配置化等价性 + D1 行为锁 + 自重置——固定末尾
   "./inject-config.test.mjs",
   // 域 3 第三枪（2026-09-22）：白名单口令（whitelistAllow）配置化等价性 + 捕获 + 自重置——固定末尾
-  "./whitelist-allow-config.test.mjs"
+  "./whitelist-allow-config.test.mjs",
+  // 件 A（2026-09-22）：classifyAction 消费 toolClass 的 analysis（反例：pwsh --dry-run 仍 unknown）
+  "./contract-analysis-class.test.mjs"
 ];
 
 for (const t of tests) {
