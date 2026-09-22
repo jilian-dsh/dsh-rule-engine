@@ -148,7 +148,9 @@ const tests = [
   // 域 3 第三枪（2026-09-22）：白名单口令（whitelistAllow）配置化等价性 + 捕获 + 自重置——固定末尾
   "./whitelist-allow-config.test.mjs",
   // 件 A（2026-09-22）：classifyAction 消费 toolClass 的 analysis（反例：pwsh --dry-run 仍 unknown）
-  "./contract-analysis-class.test.mjs"
+  "./contract-analysis-class.test.mjs",
+  // 件 E（2026-09-22）：node 调用带 --dry-run 视为只读（真 bump／写盘 cmdlet 同条／git push·commit 仍非只读）
+  "./dry-run-readonly.test.mjs"
 ];
 
 for (const t of tests) {

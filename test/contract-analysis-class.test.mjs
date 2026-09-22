@@ -8,13 +8,22 @@
 import assert from "node:assert/strict";
 import { classifyAction } from "../lib/core/overengineering.js";
 
-// ── ① 反例：pwsh ＋ --dry-run → 仍为 unknown（件 A 不得顺带放行它；那是件 E 的面）──
+// ── ① 件 E 后（2026-09-22）：带 --dry-run 的预览已被证明只读 → read（原断言为 unknown）──
 const dryRunCmd = "node scripts/example-manual-write.mjs bump --dry-run";
 const dryRun = classifyAction("pwsh", { command: dryRunCmd });
 assert.equal(
   dryRun.mutability,
+  "read",
+  `件 E 后：pwsh 跑「${dryRunCmd}」的 mutability 应为 read（--dry-run 已被证明只读）`
+);
+
+// ── ①b 新反例：无 --dry-run 的真 bump → 仍为 unknown（件 A／件 E 都不得放行它）──
+const realBumpCmd = "node scripts/example-manual-write.mjs bump";
+const realBump = classifyAction("pwsh", { command: realBumpCmd });
+assert.equal(
+  realBump.mutability,
   "unknown",
-  `反例：pwsh 跑「${dryRunCmd}」的 mutability 应为 unknown（现盘即如此；件 A 不得改动）`
+  `反例：pwsh 跑「${realBumpCmd}」（无 --dry-run）的 mutability 仍应为 unknown`
 );
 
 // ── ② 先红：ask_user_question（ANALYSIS_TOOLS，tool-catalog.js L42）──
