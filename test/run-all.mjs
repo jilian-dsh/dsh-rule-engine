@@ -152,7 +152,9 @@ const tests = [
   // 件 E（2026-09-22）：node 调用带 --dry-run 视为只读（真 bump／写盘 cmdlet 同条／git push·commit 仍非只读）
   "./dry-run-readonly.test.mjs",
   // 件 B（2026-09-22）：契约拒绝与未归类工具拒绝写入 cardHits（回合卡片不再 clear）
-  "./contract-card-hits.test.mjs"
+  "./contract-card-hits.test.mjs",
+  // 执行单 3-4 已选 (b)（2026-09-22）：被拦调用类型 → ask 授权类别（lastDeniedType ＋ 双类兜底）
+  "./ask-auth-class.test.mjs"
 ];
 
 for (const t of tests) {
