@@ -17,7 +17,7 @@ import {
   actionWordsRe,
   questionWordsRe
 } from "../lib/core/lexicon.js";
-import { TEST_LEXICONS_ZH, useChineseLexicons } from "./helpers.mjs";
+import { TEST_LEXICONS_ZH, useChineseLexicons, useChinesePatterns } from "./helpers.mjs";
 
 // ── ① 迁移前基线（迁移前 lexicon.js 逐字快照；独立于当前实现，作为对照物）──
 const LEGACY = {
@@ -57,7 +57,12 @@ const SAMPLES = {
 };
 
 // ── 用例 1：迁移前基线 vs 迁移后实现 —— 同批样本句判定逐条一致 ──
+// 夹具须成对注入（与 run-all 入口同口径）：用例 6 调 parseUserIntents，域 1 迁 intent 后
+// 必须有 intent_checks 中文夹具——只注 lexicons 时，中文 status_signal 在、中文 status_exclude／plan
+// 不在（它们随域 1 迁至 patterns.intent_checks），于是「1、执行 A」被 isStatusSignal 抢判成 status、
+// 「2、评估 B」落到 info；lexicons＋patterns 同注才是 execute／plan（第四方独立复现 actual=status）。
 useChineseLexicons();
+useChinesePatterns();
 for (const key of Object.keys(LEGACY)) {
   const before = new RegExp(LEGACY[key], "i");
   const after = lexRe(key);
@@ -71,9 +76,12 @@ console.log("词表等价性（9 键 × 样本全量比对）：PASS");
 {
   const eff = effectiveLexicons();
   for (const key of Object.keys(LEGACY)) {
-    assert.equal(eff[key], LEGACY[key], `生效 source 与迁移前不一致：${key}`);
+    // 方案 A 有意分叉（域 2 第一枪 2026-09-21）：approval 已并词——该键对照夹具现值
+    // （TEST_LEXICONS_ZH.approval）；LEGACY.approval 保持迁前值不改（不冒充等价），其余键仍对照 LEGACY。
+    const expected = key === "approval" ? TEST_LEXICONS_ZH.approval : LEGACY[key];
+    assert.equal(eff[key], expected, `生效 source 与基线不一致：${key}`);
   }
-  assert.equal(Object.keys(TEST_LEXICONS_ZH).length, 10, "夹具应含 10 张显式表（approval_exec 为派生键）");
+  assert.equal(Object.keys(TEST_LEXICONS_ZH).length, 11, "夹具应含 11 张显式表（approval_exec 已显式钉死本机现值）");
   assert.ok(LEXICON_KEYS.includes("approval_exec"), "approval_exec 应在键清单中");
 }
 
@@ -136,6 +144,7 @@ console.log("词表等价性（9 键 × 样本全量比对）：PASS");
   assert.equal(hasLexiconOverride(), false, "空对象应回退内置默认");
 
   useChineseLexicons(); // 还原夹具，供后续测试/单独运行
+  useChinesePatterns(); // 同口径重申：用例 6 的 parseUserIntents 依赖 patterns.intent_checks 中文夹具
   assert.equal(lexRe("action_words").test("执行"), true);
 }
 

@@ -10,6 +10,10 @@ import {
   parseBudgetCommand,
   parseModeCommand
 } from "../lib/core/contract.js";
+import { useChineseNaturalMode } from "./helpers.mjs";
+
+// 域 3 第一枪（2026-09-22）：naturalMode 五条已迁配置层（内置语言无关）→ 中文样本须由夹具承接（单跑自足）
+useChineseNaturalMode();
 
 // 默认契约
 const d = defaultContract();

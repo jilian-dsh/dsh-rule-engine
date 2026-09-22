@@ -78,6 +78,11 @@ const { inferPathPrefixesFromText } = await import("../lib/core/authorization.js
 // 非 inferPathPrefixesFromText——上次修错层；授权集全链路断言）
 {
   const { scopesFromIntents } = await import("../lib/core/authorization.js");
+  const { useChineseLexicons, useChinesePatterns, useChineseVerbHints } = await import("./helpers.mjs");
+  // 域 2 第三枪（2026-09-22）：三套夹具（lexicons ＋ patterns.intent_checks ＋ 动作词表）——单跑自足
+  useChineseLexicons();
+  useChinesePatterns();
+  useChineseVerbHints();
   const { parseUserIntents } = await import("../lib/core/intent.js");
   const TASK = `任务：在 Windows 的 D:\\example workspace\\dsh-project\\reports\\d3-probe\\ 目录下依次执行三步。
 步骤：

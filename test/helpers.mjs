@@ -3,6 +3,12 @@ import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setLexicons } from "../lib/core/lexicon.js";
+import { setTypeHints } from "../lib/core/authorization.js";
+import { setVerbTypes, setVerbRe, setDelegationMarker, setSessionWide } from "../lib/core/authorization.js";
+import { setRetryExempt } from "../lib/core/guard-core.js";
+import { setNaturalMode } from "../lib/core/contract.js";
+import { setInjectCommand } from "../lib/core/text-detect.js";
+import { setWhitelistAllow } from "../lib/core/text-detect.js";
 import { setPatterns } from "../lib/core/patterns.js";
 
 // 残余1 剥离后（2026-08-31）：本机回归测试夹具需注入默认偏好表（模拟本机配置 handlerDefaultMap）——
@@ -32,8 +38,11 @@ export const TEST_DEFAULT_MAP = {
 // 既有回归测试全部基于中文样本 → 测试入口统一注入本夹具，与真实环境（本机 json 已注入同表）口径一致。
 // 维护约定：本表 = 迁移前 lexicon.js 11 张表的逐字快照；改词表请同步本机 rule-engine.json.lexicons。
 export const TEST_LEXICONS_ZH = {
-  approval: "(?:确认|同意|批准|授权|可以|允许|好|行|ok|yes)",
+  approval: "(?:确认|同意|批准|授权|可以|允许|好|行|是|去吧|开始|执行|ok|yes)",
   exec_follow: "(?:即可|现在|马上|继续|开始|执行|落盘|去做|实施|进行|删除|修改|改|补|修|做|写入|创建|安装|发布|下载|提交|运行)",
+  // 域 2 第一枪（2026-09-21）：approval_exec 显式钉死本机 json 现值（第一段＝旧 approval 词）——
+  // 防 approval 并词后派生第一段随之漂移（夹具与本机实盘口径一致；本机 json L101 亦为显式值）。
+  approval_exec: "(?:确认|同意|批准|授权|可以|允许|好|行|ok|yes)[^\\n]{0,16}(?:即可|现在|马上|继续|开始|执行|落盘|去做|实施|进行|删除|修改|改|补|修|做|写入|创建|安装|发布|下载|提交|运行)",
   plan_only: "确认方案|确认理解|确认方向|确认无误|理解了|明白方向|了解|没问题|收到",
   action_words: "执行|跑|落|落盘|认可|开始|写入|写(?:下|好|完|成|作|文件)?|保存|另存为|删除|修改|改(?:为|成|动|一下|进|善)?|补(?:上|齐|全|充|写)?|修(?:改|复|一下)?|做(?:好|完|一下)?|创建|建(?:设|立|好|一下|个|一个)?|安装|发布|下载|提交|推送|push|运行|修复|替换|重建|启动|重启|停止|卸载|开始改|开始写|改进|优化|增强|完善|升级|迁移|整理|调整|实现|实施|添加|增加|补充|重写|改造|调试|排查|处理|解决|继续|推进|更新|部署|核实|梳理|诊断|对齐|跟进|落实|设计并实现|调查|开工|动手|进行|完成|选择|采纳|选定|产出|编写|撰写|生成|审查|阅读|查看|核对|检查|审阅|复核|查阅|验证|对照|调研|研究|转化|转换|读取|读(?:出|一下|一遍|完|出来)?|展示|打开|提取|还原|导入|导出|清理|移除|清空|残留|合入|合并|并入|融合|整合|起草|开展|搭建|重构|兼容|投产|校验|核验|过一遍|跑一遍|复验",
   strong_exec: "执行吧|开始执行|直接执行|立即执行|现在执行|马上执行|请落盘|开始写|开始改|执行以下|执行第|执行这个|执行它|落盘|开始蒸馏|开始迁移|开始修复|开始改进|开始优化|采纳|选定",
@@ -47,6 +56,98 @@ export const TEST_LEXICONS_ZH = {
 /** 注入中文词表夹具（返回 setLexicons 的 {applied, rejected} 明细；测试入口调用一次即可） */
 export function useChineseLexicons() {
   return setLexicons(TEST_LEXICONS_ZH);
+}
+
+// 域 2 第二枪（2026-09-22）：授权类型提示夹具——内置 TYPE_HINTS 已改语言无关（去中文），
+// 中文九条经本机 rule-engine.json.typeHints 注入；本表与迁后 json 九条逐字同（每 type 一条）。
+export const TEST_TYPE_HINTS_ZH = [
+  { re: "删除|移除|remove|delete", type: "delete" },
+  { re: "修改|编辑|替换|写入|写(?:入|文件|作|下|好|完|成)?|改(?:为|成)?|保存|另存为|转化|转换|edit|write|replace|覆盖|覆写|overwrite", type: "write" },
+  { re: "备份|backup", type: "backup" },
+  { re: "提交|推送|\\b(?:git\\s+)?(?:commit|push|clone|pull|reset|rebase|merge|checkout)\\b|git\\s+\\w+", type: "git" },
+  { re: "命令|运行|执行\\s*(?:命令|脚本|以下|程序)|run|execute|pwsh|bash|node\\s+(?!-e\\b|-p\\b|--eval\\b|--print\\b)(?:['\"])?[\\w./\\\\-]+(?:['\"])?(?:\\s|$)|(?:npm|pnpm|yarn|bun)\\s+(?:run|exec|install|add)|(?:^|[^a-z])(?:tsc|tsdown|vite|webpack|rollup)\\b", type: "command" },
+  { re: "(?:技能|skill)\\s*(?:调用|目录|管理|列表|启用|禁用|安装|删除|加载|查询)|(?:启用|禁用|调用|安装|删除|加载|查询|打开|查看|管理)\\s*技能|(?:启用|禁用|调用|安装|删除|加载|查询|打开|查看|管理)\\s*skill\\b|skill\\s+(?:tools?|dir|enable|disable|list|install)\\b|\\/guard\\s+skills?\\b", type: "skill" },
+  { re: "下载|网络|https?:\\/\\/\\S*|(?:^|[^a-z])(?:curl|fetch|wget|iwr|Invoke-WebRequest|Invoke-RestMethod)\\s*(?:\\(|\\.|[^\\w]|$)", type: "network" },
+  { re: "审查|阅读|查看|核对|检查|审阅|复核|查阅|验证|对照|评估|分析|研究|排查|核实|梳理|调查|诊断|读取|读(?:出|一下|一遍|完)?|展示|打开|提取", type: "analysis" },
+  { re: "解压|解包|解压缩|归档|unzip|expand-archive|extract-archive|tar\\s+-x|7z\\s+x", type: "archive" }
+];
+
+/** 注入中文授权类型提示夹具（不带 clear → 与内置合并，见 setTypeHints；setTypeHints 无返回值） */
+export function useChineseTypeHints() {
+  return setTypeHints(TEST_TYPE_HINTS_ZH);
+}
+
+// 域 2 第三枪（2026-09-22）：动作词表夹具——内置六条与内置 verbRe 已改语言无关（英文最小集），
+// 中文源经本机 rule-engine.json 的 verbTypes／verbRe 键注入；本表与迁后 json 逐字同（每 type 一条）。
+export const TEST_VERB_TYPES_ZH = [
+  { re: "删除|移除|清理|清空|丢弃", type: "delete" },
+  { re: "备份", type: "backup" },
+  { re: "提交|推送", type: "git" },
+  { re: "下载", type: "network" },
+  { re: "执行|运行", type: "any" },
+  { re: "写|保存|另存为|创建|复制|移动|修改|编辑|替换|改|补|修|做|安装|卸载|修复|重建|启动|停止|调整|改进|优化|升级|迁移|整理|添加|增加", type: "write" }
+];
+export const TEST_VERB_RE_ZH =
+  "删除|移除|修改|编辑|替换|写入|写|保存|另存为|创建|复制|移动|备份|提交|推送|下载|执行|运行|安装|卸载|清理|修复|重建|启动|停止|调整|改进|优化|升级|迁移|整理|添加|增加|改|补|修|做|实施|推进|继续|处理|解决|转化|转换|读取|读(?:完|出|一下|一遍|出来)?|展示|打开|提取|还原|导入|导出|落盘|落地";
+
+/** 注入中文动作词表夹具（setVerbTypes／setVerbRe 均无返回值；不带 clear → 与内置合并） */
+export function useChineseVerbHints() {
+  setVerbTypes(TEST_VERB_TYPES_ZH);
+  setVerbRe(TEST_VERB_RE_ZH);
+}
+
+// 域 2 第四枪（2026-09-22）：范围标记夹具——内置两串已改语言无关（英文最小集），
+// 中文源经本机 rule-engine.json 的 delegationMarker／sessionWide 键注入；本表与其逐字同。
+export const TEST_DELEGATION_MARKER_ZH = "任务|只允许|仅限|受限于|范围内|目录下|依次执行|执行以下|步骤";
+export const TEST_SESSION_WIDE_ZH =
+  "全部|本会话|本次会话|整个会话|当前会话|会话内所有|会话内全部|所有后续|剩余所有|所有操作|整个profile|整个工作区|全部推进项|全部操作";
+
+/** 注入中文范围标记夹具（setDelegationMarker／setSessionWide 均无返回值；不带 clear → 与内置合并） */
+export function useChineseScopeMarkers() {
+  setDelegationMarker(TEST_DELEGATION_MARKER_ZH);
+  setSessionWide(TEST_SESSION_WIDE_ZH);
+}
+
+// 域 2 第五枪（2026-09-22）：规则 1 重试豁免词夹具——内置已改语言无关（英文最小集），
+// 中文源经本机 rule-engine.json 的 retryExempt 键注入；本表与其逐字同（现盘顺序，再试在末位）。
+export const TEST_RETRY_EXEMPT_ZH = "重试|再试一次|再来一次|继续试|再试";
+
+/** 注入中文重试豁免词夹具（setRetryExempt 无返回值；不带 clear → 与内置合并） */
+export function useChineseRetryExempt() {
+  setRetryExempt(TEST_RETRY_EXEMPT_ZH);
+}
+
+// 域 3 第一枪（2026-09-22）：naturalMode 五键夹具——内置五条已改语言无关（英文最小集），
+// 中文源经本机 rule-engine.json 的 naturalMode 对象注入；本表与其逐字同（stop 含中文标点，整条不拆）。
+export const TEST_NATURAL_MODE_ZH = {
+  stop: "^(?:停止|停下来)[.!。！\\s]*$",
+  review: "只审查|只看不改|不要修改(?:任何|代码|文件)",
+  answer: "只回答",
+  monitor: "只监控|只观察",
+  change: "^(?:请)?(?:修复|修改|实现|应用补丁)|^把.+(?:修复|修改|改掉)"
+};
+
+/** 注入中文 naturalMode 夹具（setNaturalMode 无返回值；一次 set，不带 clear） */
+export function useChineseNaturalMode() {
+  setNaturalMode(TEST_NATURAL_MODE_ZH);
+}
+
+// 域 3 第二枪（2026-09-22）：注入文案命令词夹具——内置已改语言无关（英文最小集），
+// 中文源经本机 rule-engine.json 的 injectCommand 键注入；本表与其逐字同（整条不拆不重排）。
+export const TEST_INJECT_COMMAND_ZH = "请直接执行|请立即|不要再|勿再|请马上|现在就做|立刻执行|直接执行";
+
+/** 注入中文注入文案命令词夹具（setInjectCommand 无返回值；不带 clear → 与内置合并） */
+export function useChineseInjectCommand() {
+  setInjectCommand(TEST_INJECT_COMMAND_ZH);
+}
+
+// 域 3 第三枪（2026-09-22）：白名单口令夹具——内置已改语言无关（英文最小集），
+// 中文源经本机 rule-engine.json 的 whitelistAllow 键注入；本表与其逐字同（捕获组随整条走）。
+export const TEST_WHITELIST_ALLOW_ZH = "(?:允许|批准|同意)\\s*(?:使用|调用|用|启用|放行)\\s*([A-Za-z_][A-Za-z0-9_:.-]*)";
+
+/** 注入中文白名单口令夹具（setWhitelistAllow 无返回值；不带 clear → 与内置合并） */
+export function useChineseWhitelistAllow() {
+  setWhitelistAllow(TEST_WHITELIST_ALLOW_ZH);
 }
 
 // P8 小批 B（2026-09-08）：检测正则测试夹具（迁移前 patterns.js 16 张表的逐字快照）。
@@ -104,7 +205,62 @@ export const TEST_PATTERNS_ZH = {
   apology_with_cause: "(?:原因|改正|防再犯|避免|机制|解法|修正)",
   version_record_mention: "版本记录|v\\d+\\.\\d+",
   version_record_only: "已记入版本记录|版本记录已|只加了版本记录|只加版本记录",
-  version_sync_ok: "正文|同步|无需同步|无需改正文"
+  version_sync_ok: "正文|同步|无需同步|无需改正文",
+  // 第三批（2026-09-21）：检查文本 → hint 判定词（10 子键）＝迁移前 understander.js hintPatterns 的
+  // 逐条内联正则（**均带 i**，迁移后由 hintPatterns 按 "i" 编译保持等价）；与本机
+  // rule-engine.json.patterns.hint_checks 同源。
+  hint_checks: {
+    ask: "ask_user_question|授权|弹框",
+    time: "get-date|时间词|昨天|今天",
+    skill: "skill|技能",
+    sensitive: "git\\s+(push|commit)|敏感操作|授权",
+    backup: "删除|覆盖|备份|验证",
+    manual: "手册",
+    retry: "重试|连续失败|第\\s*3\\s*次",
+    "runtime-verify": "运行时验证|mock|启动|实测",
+    source: "URL|来源|出处|引用",
+    language: "中文|英文|语言"
+  },
+  // 第三批（2026-09-21）：分点级意图判定词（9 子键）＝迁移前 intent.js 九条正则的逐字源码；
+  // flags 口径留在 intent.js 代码（specific_action 与 at_action 用 "i"，其余空）；
+  // 与本机 rule-engine.json.patterns.intent_checks 同源（本枪不改本机 json）。
+  intent_checks: {
+    tag: "【(执行|方案|问询|信息)】",
+    defer: "待确认|确认后再|等我确认|先方案|先别|不要执行|之后再说|确认后|再确认|先确认|不要直接",
+    conditional:
+      "(?:完成|结束|做完|弄完|搞定|好了|恢复|重启?)\\s*(?:了|之后|后|以后|再)|(?:等|待|等\\s*[\\u4e00-\\u9fff]{0,6}?)\\s*[\\u4e00-\\u9fff]{0,8}?(?:后|之后|了)\\s*|(?:推送|上传|提交|发布|执行)\\s*(?:完成|结束|完|好)\\s*(?:了|之?后)?",
+    plan: "方案|建议|评估|分析|设计|规划|计划|给出|提供",
+    specific_action:
+      "写入|写(?:下|好|完|成|作|文件)?|保存|另存为|删除|修改|改(?:为|成|动|一下|进|善)?|补(?:上|齐|全|充|写)?|修(?:改|复|一下)?|做(?:好|完|一下)?|创建|安装|发布|下载|提交|运行|修复|替换|重建|启动|重启|停止|卸载|改进|优化|增强|完善|升级|迁移|整理|调整|实现|实施|添加|增加|补充|重写|改造|调试|排查|处理|解决|更新|部署|核实|梳理|诊断|对齐|跟进|落实|设计并实现|调查|产出|编写|撰写|生成|审查|阅读|查看|核对|检查|审阅|复核|查阅|验证|对照|调研|研究|转化|转换|读取|读(?:完|出|一下|一遍|出来)?|展示|打开|提取|还原|导入|导出|采纳|选择|选定|落盘|落地|清理|移除|清空|合入|合并|并入|融合|整合|起草|开展|搭建|重构|兼容|投产|校验|核验|过一遍|跑一遍|复验",
+    plan_executing:
+      "(?:方案|计划|步骤|清单|安排)[^\\n]{0,16}?(?:执行|开始|继续|开工|去做|照做|落地)|(?:执行|开始|继续|做)[^\\n]{0,12}(?:该|此|这个|上述|已有|给出(?:的)?|拟定(?:的)?)?方案",
+    plan_request:
+      "(?:给出|提供|出|设计|评估|分析|规划|计划|整理|拟定|撰写|编写|看看|讲解|说说|如何|怎么|哪里|要(?:一|个|份)|需?(?:要|求)(?:一|个|份)?)",
+    at_action: "看|读|改|写|转|查|处理|提取|打开|展示|审阅|检查|分析|整理|校对|核对|还原|更新|删除|移动|执行|处理",
+    status_exclude: "^(?:请|帮我)?\\s*(?:先|接着|然后)?\\s*(?:完成|重启|执行|搞定|做完|弄好)\\s+\\S"
+  },
+  // 第三批（2026-09-21）：过度工程／重复打转判定词（4 子键）＝迁移前 overengineering.js
+  // detectOverengineeringText 内四条正则的逐字源码（extra_tech 带 i，其余空）；
+  // 与本机 rule-engine.json.patterns.overeng_checks 同源（本枪不改本机 json）。
+  overeng_checks: {
+    extra_act: "(?:顺手|顺便|额外|多加|防止以后|以防万一|先加上|先建个)",
+    extra_tech: "(?:重构|依赖|抽象|兼容|迁移|flag|校验|哈希|hash|全量测试|保险)",
+    recheck: "(?:再检查一遍|再跑一次测试|再审计一次|重新验证一遍)",
+    recheck_except: "(?:新证据|发现|失败|报错|修改后|变更后)"
+  },
+  // 第三批（2026-09-21）：版本守卫判定词（2 子键）＝迁移前 version-guard.js 两条正则的逐字源码
+  // （path_mark 带 i、rule_bracket 空且保留捕获组）；与本机 rule-engine.json.patterns.version_guard_checks 同源。
+  version_guard_checks: {
+    path_mark: "版本|version|changelog",
+    rule_bracket: "\\[规则\\s+([^\\]]+)\\]"
+  },
+  // 第三批（2026-09-21）：自证标记判定词（2 子键）＝迁移前 text-detect.js isSelfCertified 内
+  // 规则词＋自证尾词两段逐字源码（tail 含外层非捕获组；拼装公式与 id 转义留代码）；
+  // 与本机 rule-engine.json.patterns.self_cert_checks 同源。
+  self_cert_checks: {
+    rule_word: "规则",
+    tail: "(?:已按|已按要求|已自证|已核对|已核实|核实通过|合规|已满足|已一次性说明|已合并提出|已回应|已实施|已落地)"
+  }
 };
 
 /** 注入中文检测正则夹具（返回 setPatterns 的 {applied, rejected} 明细） */

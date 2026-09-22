@@ -10,8 +10,17 @@ import assert from "node:assert/strict";
 import { parseUserIntents, shouldDenyMutation } from "../lib/core/intent.js";
 import { isReadOnlyCommand, setWorkspaceRoots } from "../lib/core/patterns.js";
 import { authMatches, askResultRejected, scopesFromIntents } from "../lib/core/authorization.js";
+import { useChineseLexicons, useChinesePatterns, useChineseVerbHints, useChineseInjectCommand } from "./helpers.mjs";
+
+// 域 2 第三枪（2026-09-22）：三套夹具顶部自注入，单跑自足——
+// lexicons（question／status_signal 等）＋ patterns.intent_checks（分点类型）＋ 动作词表。
+// 域 3 第二枪（2026-09-22）：注入文案命令词夹具（场景④ D1 静态闸判据）。
+useChineseLexicons();
+useChinesePatterns();
+useChineseVerbHints();
+useChineseInjectCommand();
 import { guardDecision } from "../lib/core/guard-core.js";
-import { DELIVERY_RE, detectTimeRule } from "../lib/core/text-detect.js";
+import { DELIVERY_RE, detectTimeRule, isInjectCommandText } from "../lib/core/text-detect.js";
 
 /** guardDecision 所需的最小 state（防 mtime 重载注入全套规则） */
 function makeState(configs) {
@@ -134,7 +143,7 @@ try {
 // ═══ 场景④ 注入文案命令词静态检查（D1 守卫 + 文案已验证） ═══
 {
   // 注入文案清单（从 index.js 源码提取现状）——任何一条含命令词短语 = 红
-  const INJECT_COMMAND_RE = /请直接执行|请立即|不要再|勿再|请马上|现在就做|立刻执行|直接执行/;
+  // 域 3 第二枪（2026-09-22）：判据改走 text-detect.js 的 isInjectCommandText（本地内联正则已删，防测试侧复制漂移）
   const injectTexts = [
     "规则 19/M8：手册/AGENTS 落盘后应在同一回合补 engram_store，否则记忆机制断链（已记审计）",
     "规则 27：全量审计未通过，先移除多余挂载再重跑审计",
@@ -143,11 +152,11 @@ try {
   ];
   for (const t of injectTexts) {
     // 场景4a：现状文案必须全部通过命令词检查（D1 落地后写成陈述式）
-    assert.equal(INJECT_COMMAND_RE.test(t), false, `④ 注入文案不含命令词："${t.slice(0, 40)}…"`);
+    assert.equal(isInjectCommandText(t), false, `④ 注入文案不含命令词："${t.slice(0, 40)}…"`);
   }
   // 场景4b：历史坏文案（含"请直接执行"）必须被守卫拦住（防回潮）
   const badHistorical = "已有授权或询问被拒时请直接执行、或用普通文本说明，不要再弹窗 ask。";
-  assert.equal(INJECT_COMMAND_RE.test(badHistorical), true, "④ 历史命令式文案被守卫识别（回潮即红）");
+  assert.equal(isInjectCommandText(badHistorical), true, "④ 历史命令式文案被守卫识别（回潮即红）");
 }
 
 // ═══ 场景⑤ 规则 2 时序竞态（F1）：Get-Date 后置也合规 ═══

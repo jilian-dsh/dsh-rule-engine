@@ -7,6 +7,13 @@
 import assert from "node:assert/strict";
 import { parseUserIntents } from "../lib/core/intent.js";
 import { scopesFromIntents, extractActionObjects, authMatches } from "../lib/core/authorization.js";
+import { useChineseLexicons, useChinesePatterns, useChineseVerbHints } from "./helpers.mjs";
+
+// 域 2 第三枪（2026-09-22）：三套夹具顶部自注入，单跑自足——
+// lexicons（question／status_signal 等）＋ patterns.intent_checks（分点类型）＋ 动作词表。
+useChineseLexicons();
+useChinesePatterns();
+useChineseVerbHints();
 
 const msg = [
   "1、按发布习惯，这个脚本需要push吗",

@@ -3,6 +3,10 @@
 import test from "node:test";
 import assert from "node:assert";
 const { classifyAskScopeType, setTypeHints } = await import("../lib/core/authorization.js");
+const { useChineseTypeHints } = await import("./helpers.mjs");
+
+// 域 2 第二枪（2026-09-22）：内置 TYPE_HINTS 已改语言无关（去中文）→ 中文样本须由夹具承接（单跑自足）
+useChineseTypeHints();
 
 test("明确写类答复 → write", () => {
   assert.equal(classifyAskScopeType("是否允许写入该文件（允许写入文件）"), "write");

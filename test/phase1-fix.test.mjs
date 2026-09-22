@@ -5,6 +5,13 @@ import assert from "node:assert/strict";
 import { parseUserIntents, shouldDenyMutation } from "../lib/core/intent.js";
 import { isReadOnlyCommand } from "../lib/core/patterns.js";
 import { authMatches, askResultRejected, inferPathPrefixesFromText, scopesFromIntents } from "../lib/core/authorization.js";
+import { useChineseLexicons, useChinesePatterns, useChineseVerbHints } from "./helpers.mjs";
+
+// 域 2 第三枪（2026-09-22）：三套夹具顶部自注入，单跑自足——
+// lexicons（question／status_signal 等）＋ patterns.intent_checks（分点类型）＋ 动作词表。
+useChineseLexicons();
+useChinesePatterns();
+useChineseVerbHints();
 import { guardDecision } from "../lib/core/guard-core.js";
 
 // guard-core 的 makeHit 未导出；用 guardDecision 需要的简化见证：直接验证 errId 生成逻辑走

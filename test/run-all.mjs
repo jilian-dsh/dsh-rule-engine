@@ -1,5 +1,5 @@
 // run-all.mjs - 依次运行全部单测（.mjs 化：避免 .js 被 Windows 脚本主机误打开弹窗）
-import { useChineseLexicons, useChinesePatterns } from "./helpers.mjs";
+import { useChineseLexicons, useChinesePatterns, useChineseTypeHints, useChineseVerbHints, useChineseScopeMarkers, useChineseRetryExempt, useChineseNaturalMode, useChineseInjectCommand, useChineseWhitelistAllow } from "./helpers.mjs";
 
 // P8 小批 A/B（2026-09-08）：内置词表与检测正则已改为通用最小集（语言无关，随包发布）——
 // 本仓库回归测试全部基于中文样本，故入口统一注入中文夹具（等价于本机 rule-engine.json 的
@@ -15,12 +15,21 @@ import { useChineseLexicons, useChinesePatterns } from "./helpers.mjs";
     console.error("检测正则夹具注入失败:", JSON.stringify(pres.rejected));
     process.exit(1);
   }
+  useChineseTypeHints(); // 授权类型提示夹具（setTypeHints 无返回值 → 无 rejected 明细可查）
+  useChineseVerbHints(); // 动作词表夹具（setVerbTypes／setVerbRe 亦无返回值）
+  useChineseScopeMarkers(); // 范围标记夹具（setDelegationMarker／setSessionWide 亦无返回值）
+  useChineseRetryExempt(); // 重试豁免词夹具（setRetryExempt 亦无返回值）
+  useChineseNaturalMode(); // naturalMode 五键夹具（setNaturalMode 亦无返回值）
+  useChineseInjectCommand(); // 注入文案命令词夹具（setInjectCommand 亦无返回值）
+  useChineseWhitelistAllow(); // 白名单口令夹具（setWhitelistAllow 亦无返回值）
 }
 
 const tests = [
   "./parser.test.mjs",
   "./understander.test.mjs",
   "./authorization.test.mjs",
+  // 域 2 第一枪（2026-09-21）：第二份许可词并入 lexicon.approval——独有词仍真 + 「行」有意分叉 + approval_exec 不随迁
+  "./authorization-approval-merge.test.mjs",
   "./intent.test.mjs",
   "./guard.test.mjs",
   "./text-detect.test.mjs",
@@ -113,12 +122,43 @@ const tests = [
   // B1+C1（2026-09-10）：官方 bundle 豁免 + 装配不一致死循环的收敛豁免——固定末尾
   "./b1c1-convergence.test.mjs",
   // D（2026-09-13）：M8 提示前移到 tool/result（自设 DSH_HOME + import index.js）——固定末尾
-  "./m8-hint.test.mjs"
+  "./m8-hint.test.mjs",
+  // (c) 格式描述对象配置化（2026-09-21）：五处格式预设等价性 + 双层模型 + 拒绝面（纯函数，自注入/自重置）——固定末尾
+  "./formats-config.test.mjs",
+  // 第三批 hint 判定词迁配置层（2026-09-21）：hint_checks 映射键等价性 + 理解器 hints 集成（自注入/自重置）——固定末尾
+  "./hint-checks-config.test.mjs",
+  // 第三批 分点级意图判定词迁配置层（2026-09-21）：intent_checks 九子键等价性 + parseUserIntents 全产物——固定末尾
+  "./intent-checks-config.test.mjs",
+  // 第三批 过度工程/重复打转判定词迁配置层（2026-09-21）：overeng_checks 四子键等价性 + AND/NOT + 缓存活性——固定末尾
+  "./overeng-checks-config.test.mjs",
+  // 第三批 版本守卫判定词迁配置层（2026-09-21）：version_guard_checks 两子键等价性 + lineAnchor 同号放行/不同号拦截——固定末尾
+  "./version-guard-checks-config.test.mjs",
+  // 第三批 自证标记判定词迁配置层（2026-09-21）：self_cert_checks 两子键等价性 + 拼装公式 + 缓存活性——固定末尾
+  "./self-cert-checks-config.test.mjs",
+  // 域 2 第三枪（2026-09-22）：动作词表配置化等价性 + R6④ 精确配对 + 自注入/自重置——固定末尾
+  "./verb-config.test.mjs",
+  // 域 2 第四枪（2026-09-22）：范围标记（delegationMarker／sessionWide）配置化等价性 + 行为锁 + 自重置——固定末尾
+  "./scope-config.test.mjs",
+  // 域 2 第五枪（2026-09-22）：规则 1 重试豁免词（retryExempt）配置化等价性 + 行为锁 + 自重置——固定末尾
+  "./retry-config.test.mjs",
+  // 域 3 第一枪（2026-09-22）：naturalMode 五键配置化等价性 + 行为锁 + 自重置——固定末尾
+  "./natural-mode-config.test.mjs",
+  // 域 3 第二枪（2026-09-22）：注入文案命令词（injectCommand）配置化等价性 + D1 行为锁 + 自重置——固定末尾
+  "./inject-config.test.mjs",
+  // 域 3 第三枪（2026-09-22）：白名单口令（whitelistAllow）配置化等价性 + 捕获 + 自重置——固定末尾
+  "./whitelist-allow-config.test.mjs"
 ];
 
 for (const t of tests) {
   useChineseLexicons(); // 每个测试前重申夹具（防前序测试显式 reset/注入后未还原）
   useChinesePatterns();
+  useChineseTypeHints(); // 同上：classify-ask 用 setTypeHints([]) 清 override，不重申则其后中文断言红
+  useChineseVerbHints(); // 同上：verb override 同样会被显式 set／重置影响
+  useChineseScopeMarkers(); // 同上：scope override 同样会被显式 set／重置影响
+  useChineseRetryExempt(); // 同上：retry override 同样会被显式 set／重置影响
+  useChineseNaturalMode(); // 同上：naturalMode override 同样会被显式 set／重置影响
+  useChineseInjectCommand(); // 同上：injectCommand override 同样会被显式 set／重置影响
+  useChineseWhitelistAllow(); // 同上：whitelistAllow override 同样会被显式 set／重置影响
   console.log(`\n== ${t} ==`);
   // consistency-live：真实环境守门测试——必须在真实 DSH_HOME 下运行（tmp 隔离 → SKIP 失去守门价值）
   // 特批：跑前暂存并删除 DSH_HOME（resolveDshHome 回落真实 ~/.dsh），跑后恢复

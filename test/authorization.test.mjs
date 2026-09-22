@@ -18,6 +18,16 @@ import {
   operationOf,
   scopesFromIntents
 } from "../lib/core/authorization.js";
+import { useChineseLexicons, useChineseTypeHints, useChineseVerbHints, useChineseScopeMarkers } from "./helpers.mjs";
+
+// 域 2 第二枪（2026-09-22）：两套夹具顶部自注入，本文件单跑自足——
+// 词表夹具承接 isQuestionMessage／isAuthMessage 等中文断言；类型提示夹具承接 inferTypeFromText 中文断言。
+// 域 2 第三枪（2026-09-22）：动作词表夹具承接 scopesFromIntents 的中文动词断言。
+// 域 2 第四枪（2026-09-22）：范围标记夹具承接 isSessionWideAskText 的中文范围词断言（不加 patterns）。
+useChineseLexicons();
+useChineseTypeHints();
+useChineseVerbHints();
+useChineseScopeMarkers();
 
 // 操作范围推导
 const op = operationOf("edit", { file_path: "D:\\example\\injector-pkg\\lib\\client.js" });

@@ -17,7 +17,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { useChineseLexicons, useChinesePatterns } from "./helpers.mjs";
+import { useChineseLexicons, useChinesePatterns, useChineseWhitelistAllow } from "./helpers.mjs";
 
 const home = mkdtempSync(join(tmpdir(), "dsh-re-smoke-"));
 process.env.DSH_HOME = home;
@@ -36,6 +36,9 @@ process.env.DSH_HOME = home;
 const { state } = await import("../lib/core/runtime.js");
 const { handleSessionEvent, criticismFreezeDecision } = await import("../lib/index.js");
 const { guardDecision } = await import("../lib/core/guard-core.js");
+// 域 3 第三枪（2026-09-22）：白名单口令夹具须在 index.js 启动注入**之后**——
+// 启动时 setWhitelistAllow 会以空 pluginConfig 还原 override，早注入即被清掉。
+useChineseWhitelistAllow();
 
 state.lastMtimeCheck = Date.now() + 3600_000; // 屏蔽文件热重载（自包含）
 state.configs = [

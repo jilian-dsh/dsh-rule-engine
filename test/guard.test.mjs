@@ -7,6 +7,15 @@ import { understandRule } from "../lib/core/understander.js";
 import { guardDecision, markAskSeen, markBackupSeen, markManualRead } from "../lib/core/guard-core.js";
 import { parseUserIntents } from "../lib/core/intent.js";
 import { scopesFromIntents } from "../lib/core/authorization.js";
+import { useChineseLexicons, useChinesePatterns, useChineseVerbHints, useChineseRetryExempt } from "./helpers.mjs";
+
+// 域 2 第三枪（2026-09-22）：三套夹具顶部自注入，单跑自足——
+// lexicons（question／status_signal 等）＋ patterns.intent_checks（分点类型）＋ 动作词表。
+// 域 2 第五枪（2026-09-22）：重试豁免词夹具（规则 1 豁免判据）承接中文「请重试」断言。
+useChineseLexicons();
+useChinesePatterns();
+useChineseVerbHints();
+useChineseRetryExempt();
 
 // 防止 maybeReloadIfChanged 读到真实 AGENTS.md 覆盖手工测试配置
 process.env.DSH_HOME = join(tmpdir(), "dsh-rule-engine-guard-test-no-agents");

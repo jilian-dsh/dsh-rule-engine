@@ -14,9 +14,18 @@ process.env.DSH_WORKSPACE = "D:\\example workspace\\dsh-project";
 
 const { parseUserIntents } = await import("../lib/core/intent.js");
 const { scopesFromIntents, isDelegationText } = await import("../lib/core/authorization.js");
+const { useChineseLexicons, useChinesePatterns, useChineseVerbHints, useChineseScopeMarkers, useChineseWhitelistAllow } = await import("./helpers.mjs");
 const { unknownToolDecision, toolClass } = await import("../lib/core/tool-catalog.js");
 const { createState, getSessionState } = await import("../lib/core/state.js");
 const { handleSessionEvent } = await import("../lib/index.js");
+// 域 2 第三／四枪（2026-09-22）：夹具须在 index.js 启动注入**之后**注入——
+// 启动时 setLexicons／setTypeHints／setVerbTypes／setVerbRe／setDelegationMarker／setSessionWide
+// 会以空 pluginConfig 还原 override，早注入即被清掉（本文件 L50 实测失败）。置此 = 单跑自足。
+useChineseLexicons();
+useChinesePatterns();
+useChineseVerbHints();
+useChineseScopeMarkers();
+useChineseWhitelistAllow(); // 域 3 第三枪（2026-09-22）：白名单口令夹具（须在 index.js import 之后）
 const { guardDecision } = await import("../lib/core/guard-core.js");
 
 // ═══════════════ ① 委托文本检测 ═══════════════

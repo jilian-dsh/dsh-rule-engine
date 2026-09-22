@@ -6,6 +6,10 @@ import {
   inferTypesFromText,
   setTypeHints
 } from "../lib/core/authorization.js";
+import { useChineseTypeHints } from "./helpers.mjs";
+
+// 域 2 第二枪（2026-09-22）：内置 TYPE_HINTS 已改语言无关（去中文）→ 中文样本须由夹具承接（单跑自足）
+useChineseTypeHints();
 
 // ── archive 独立类型（解压高频用例）──
 assert.equal(inferTypeFromText("解压历史会话到临时目录"), "archive", "解压 → archive");
@@ -29,7 +33,8 @@ setTypeHints([{ type: "xyz", re: "再来一个" }], { clear: true }); // 重复 
 assert.equal(APPROVE_TYPES().length, before, "重复 type 不追加");
 setTypeHints([{ type: "bad", re: "(((" }], { clear: true }); // 非法正则 fail-safe
 assert.ok(!APPROVE_TYPES().includes("bad"), "非法正则跳过");
-setTypeHints([], { clear: true }); // 还原默认
-assert.equal(inferTypeFromText("解压历史会话"), "archive", "reset 后默认 archive 恢复");
+setTypeHints([], { clear: true }); // 还原默认（内置＝语言无关最小集）
+useChineseTypeHints(); // 中文断言须再注入夹具（内置已去中文）
+assert.equal(inferTypeFromText("解压历史会话"), "archive", "reset 后夹具 archive 承接");
 
 console.log("approve.test.js PASS");

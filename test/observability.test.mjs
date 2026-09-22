@@ -6,7 +6,13 @@ import { understandRule } from "../lib/core/understander.js";
 import { guardDecision, markAskSeen } from "../lib/core/guard-core.js";
 import { parseUserIntents } from "../lib/core/intent.js";
 import { scopesFromIntents } from "../lib/core/authorization.js";
-import { TEST_DEFAULT_MAP } from "./helpers.mjs";
+import { TEST_DEFAULT_MAP, useChineseLexicons, useChinesePatterns, useChineseVerbHints } from "./helpers.mjs";
+
+// 域 2 第三枪（2026-09-22）：三套夹具顶部自注入，单跑自足——
+// lexicons（question／status_signal 等）＋ patterns.intent_checks（分点类型）＋ 动作词表。
+useChineseLexicons();
+useChinesePatterns();
+useChineseVerbHints();
 
 // 可观测性（阶段 0，2026-08-24）：放行审计回调测试
 process.env.DSH_HOME = join(tmpdir(), "dsh-rule-engine-observe-test");

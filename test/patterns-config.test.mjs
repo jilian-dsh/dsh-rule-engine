@@ -107,7 +107,12 @@ console.log(`检测正则等价性（${Object.keys(LEGACY).length} 键 × ${comp
     if (INTENTIONAL_DIVERGENCE[key]) continue; // 有意分叉键（见上表）：不参与逐字一致比对
     assert.equal(eff[key], LEGACY[key], `生效 source 不一致：${key}`);
   }
-  assert.equal(Object.keys(TEST_PATTERNS_ZH).length, PATTERN_KEYS.length, "夹具正则键数应等于 PATTERN_KEYS");
+  // 夹具**扁平**正则键数应等于 PATTERN_KEYS（映射型键另计：self_cert_hints／hint_checks 走 PATTERN_MAP_KEYS）
+  assert.equal(
+    Object.keys(TEST_PATTERNS_ZH).filter((k) => typeof TEST_PATTERNS_ZH[k] === "string").length,
+    PATTERN_KEYS.length,
+    "夹具扁平正则键数应等于 PATTERN_KEYS"
+  );
   // 小批 C：A″ 形态键存在且强形态为语言无关默认
   assert.ok(PATTERN_KEYS.includes("criticism_shape") && PATTERN_KEYS.includes("criticism_weak"), "A″ 形态键应在 PATTERN_KEYS");
   assert.equal(eff.criticism_shape, "(?:[？?]{3,}|[!！]{4,})", "强形态应与迁移前一致");
