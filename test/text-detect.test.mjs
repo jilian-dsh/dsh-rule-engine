@@ -449,4 +449,9 @@ import { hasPathAbbrev } from "../lib/core/text-detect.js";
 assert.equal(hasPathAbbrev("请查看 reports\\xx.md"), true, "缩写 reports\\ → 命中");
 assert.equal(hasPathAbbrev("请查看 D:\\example\\workspace\\reports\\xx.md"), false, "完整盘符 → 不命中");
 assert.equal(hasPathAbbrev("请查看 ~/.dsh/AGENTS.md"), true, "~/.dsh 缩写 → 命中");
+// —— 5-1 先红（2026-09-22）：下列两条现盘应失败；失败＝判据缺口在案，**不得为转绿改判定** ——
+// 边界①：缩写词根前置字符是反引号（U+0060）——ABBREV_RE 前置字符类不含反引号 → 现盘漏判
+assert.equal(hasPathAbbrev("请查看 \x60reports\\xx.md\x60"), true, "反引号包住的缩写 → 应命中（现盘漏判）");
+// 边界②：ABS_PATH_RE 是 [^\n]* 贪婪吃至行尾，同一行第二处缩写被"剥"掉 → 现盘漏判
+assert.equal(hasPathAbbrev("完整路径 D:\\example\\x.md 另见 reports\\yy.md"), true, "同行盘符路径之后的第二处缩写 → 应命中（现盘漏判）");
 console.log("text-detect.path-abbrev PASS");
