@@ -150,7 +150,9 @@ const tests = [
   // 件 A（2026-09-22）：classifyAction 消费 toolClass 的 analysis（反例：pwsh --dry-run 仍 unknown）
   "./contract-analysis-class.test.mjs",
   // 件 E（2026-09-22）：node 调用带 --dry-run 视为只读（真 bump／写盘 cmdlet 同条／git push·commit 仍非只读）
-  "./dry-run-readonly.test.mjs"
+  "./dry-run-readonly.test.mjs",
+  // 件 B（2026-09-22）：契约拒绝与未归类工具拒绝写入 cardHits（回合卡片不再 clear）
+  "./contract-card-hits.test.mjs"
 ];
 
 for (const t of tests) {
