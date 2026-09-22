@@ -79,7 +79,16 @@ assert.ok(
   `cardHits 应含 ruleId="__task-contract" 的条目（实际：${JSON.stringify(hits)}）`
 );
 
-// ── 断言 ④（件 B 后半）：未归类工具拒绝同样进卡片 ──
+// ── 断言 ④（件 C 先红）：契约拒绝的钥匙要记进 deniedKeys ──
+// 钥匙算法＝名字 ＋ 冒号 ＋ JSON.stringify(参数)，与 lib/index.js L852／L1915 逐字同；
+// 不记则失败回执侧仍给 retryCounts 加一，第 4 次会从契约文案变成规则 1。
+const expectKey = `${exec.name}:${JSON.stringify(exec.arguments || {})}`;
+assert.ok(
+  state.deniedKeys instanceof Set && state.deniedKeys.has(expectKey),
+  `契约拒绝应记入 deniedKeys（键「${expectKey}」）——现盘契约钩子绕开 guard，不记此键`
+);
+
+// ── 断言 ⑤（件 B 后半）：未归类工具拒绝同样进卡片 ──
 const sid2 = "card2";
 getSessionState(state, sid2);
 let unknownDeny = null;
@@ -98,6 +107,14 @@ const hits2 = getSessionState(state, sid2).turn.cardHits || [];
 assert.ok(
   hits2.some((h) => h && h.ruleId === "__unknown-tool"),
   `未归类工具拒绝应写入 cardHits 且 ruleId="__unknown-tool"（实际：${JSON.stringify(hits2)}）`
+);
+
+// ── 断言 ⑥（件 C 后半）：未归类拒绝的钥匙同样要记进 deniedKeys（同名＋冒号＋JSON.stringify(参数)）──
+const unknownArgs = { foo: "bar" };
+const expectKeyU = `mystery_plugin_tool:${JSON.stringify(unknownArgs)}`;
+assert.ok(
+  state.deniedKeys instanceof Set && state.deniedKeys.has(expectKeyU),
+  `未归类拒绝应记入 deniedKeys（键「${expectKeyU}」）`
 );
 
 for (const d of disposers) if (typeof d === "function") d();
