@@ -1,7 +1,7 @@
 # dsh-rule-engine
 
 ![npm](https://img.shields.io/npm/v/dsh-rule-engine)
-![version](https://img.shields.io/badge/version-0.6.5-blue)
+![version](https://img.shields.io/badge/version-0.6.6-blue)
 
 ## 项目背景
 
@@ -29,7 +29,7 @@ DSH 规则执行引擎 v3 的插件实现。它把 `~/.dsh/AGENTS.md` 当作唯�
 
 ## 当前版本
 
-**0.6.5**（以 `package.json` 的 `version` 为准）。
+**0.6.6**（以 `package.json` 的 `version` 为准）。
 
 ## 使用指引
 
@@ -205,6 +205,7 @@ dsh plugin --profile web add dsh-rule-engine
 
 | 版本 | 日期 | 变化 |
 | --- | --- | --- |
+| 0.6.6 | 2026-09-23 | 分域词表迁配置；契约拒绝进卡片／deniedKeys；ask 按类型授权；unknownPolicy 缺键默认放行；规则2按 lane 记账与合并投递 |
 | 0.6.5 | 2026-09-20 | 注释里的行号引用改为稳定标识 |
 | 0.6.4 | 2026-09-10 | 待决询问提升为会话级；官方 bundle 豁免兑现（装配不一致的收敛豁免）；授权登记改复数路径、多路径匹配 |
 | 0.6.3 | 2026-09-09 | 词表全量配置化；新增分层残留闸与三项门禁修复 |

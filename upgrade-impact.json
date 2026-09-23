@@ -1,6 +1,38 @@
 {
   "versions": [
     {
+      "version": "0.6.6",
+      "summary": "分域词表迁配置；契约拒绝进回合卡片与 deniedKeys；ask 按被拦类型授权；unknownPolicy 缺键默认放行并审计；规则 2 按 lane 记账、回合末只撤 getdate、合并投递",
+      "impacts": [
+        {
+          "level": "behavior-change",
+          "description": "多域中文词表／格式描述迁入配置层（formats／patterns／lexicon 等），内置去中文；naturalMode 匹配 haystack 收窄。本机已注入同源中文值时行为与迁前对齐；未注入则回落内置／配置缺省。"
+        },
+        {
+          "level": "behavior-change",
+          "description": "classifyAction 消费 analysis 分类；node 的 dry-run 视为只读。"
+        },
+        {
+          "level": "behavior-change",
+          "description": "契约拒绝与未归类拒绝写入回合卡片，并记入 deniedKeys。"
+        },
+        {
+          "level": "behavior-change",
+          "description": "ask 授权按被拦调用的类型登记（不再只记单一 write 路径）。"
+        },
+        {
+          "level": "behavior-change",
+          "description": "unknownPolicy：配置缺键或 off → 放行并审计；仅显式 deny 拒绝；ask 询问。字符串取值去首尾空格转小写后匹配，其它取值按拒绝。该支调用时现读配置，读失败沿用上次成功值。本机若已显式 deny，升级后行为不变。"
+        },
+        {
+          "level": "behavior-change",
+          "description": "规则 2：detectTimeRule 为唯一判定源；命中带 lane=getdate｜evidence；pendingRule2 按 lane 记账；回合末仅在已 Get-Date 时撤销 getdate 类；其余各类各记 correct，原因合成一条投递。路径缩写认反引号并保留同行后半。"
+        }
+      ],
+      "userRulesUnaffected": true,
+      "notes": "升级只更新规则引擎插件本身，不修改 AGENTS.md / SKILL.md / 用户自定义规则。本版含未推提交 d969dcb…b7c2961（10 笔）。A3 ④⑤与规则 21③ 正文另枪，不在本版。"
+    },
+    {
       "version": "0.2.1",
       "summary": "version-guard 放行非表格单行修改（整行替换但行首锚点一致），避免 edit 工具修改规则正文被误回滚",
       "impacts": [
