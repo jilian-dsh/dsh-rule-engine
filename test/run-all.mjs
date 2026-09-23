@@ -156,7 +156,9 @@ const tests = [
   // 执行单 3-4 已选 (b)（2026-09-22）：被拦调用类型 → ask 授权类别（lastDeniedType ＋ 双类兜底）
   "./ask-auth-class.test.mjs",
   // unknownPolicy 取值矩阵（默认口径）：自设 DSH_HOME + import index.js（该支调用时现读配置）——固定末尾
-  "./unknown-policy.test.mjs"
+  "./unknown-policy.test.mjs",
+  // A3 规则 2 判定与投递（按 lane 记账/回合末只撤 getdate/合并一条投递/单一判定源）：自设 DSH_HOME + import index.js——固定末尾
+  "./rule2-delivery.test.mjs"
 ];
 
 for (const t of tests) {

@@ -167,21 +167,18 @@ try {
   assert.deepEqual(detectTimeRule(s, "这次修复完成于 08-28 晚些时候（日志 ts=2026-08-28T14:00:00Z）", timeCfg), [], "⑤ 有 Get-Date + 事件证据标注 → 合规");
   // 未调用 Get-Date → 违规（原语义保持）
   const s2 = { turn: { getDateSeen: false } };
-  assert.equal(detectTimeRule(s2, "这个时间点是昨天", timeCfg).length, 1, "⑤ 未 Get-Date → 违规（turn/end 定案才投递）");
+  // A3（规则 2 两类独立）：该句既缺 Get-Date 核对、又缺事件证据锚 → 两类各自成条（lane 各一）。
+  assert.deepEqual(
+    detectTimeRule(s2, "这个时间点是昨天", timeCfg).map((h) => h.lane).sort(),
+    ["evidence", "getdate"],
+    "⑤ 未 Get-Date + 无证据锚 → 两类各一条（lane=getdate/evidence）"
+  );
 }
 
-// ═══ 场景⑤-b F1 完整链路：assistant/message 标记 pending → turn/end 复核撤销/投递 ═══
-{
-  // 链式验证（index.js handleSessionEvent 的 turn/end 分支逻辑构成）：
-  // pendingRule2 置位 + getDateSeen=true → 撤销（rule2-resolved，不投递）
-  const turn1 = { pendingRule2: "回答出现具体时间词/日期，但本回合未先调用 Get-Date 核对", getDateSeen: true };
-  const resolved = turn1.pendingRule2 && turn1.getDateSeen ? true : false;
-  assert.equal(resolved, true, "⑤-b Get-Date 已定案 → pending 撤销（不投递）");
-  // pendingRule2 置位 + getDateSeen=false → 投递（审计 correct + maybeInject）
-  const turn2 = { pendingRule2: "回答出现具体时间词/日期，但本回合未先调用 Get-Date 核对", getDateSeen: false };
-  const shouldDeliver = turn2.pendingRule2 && !turn2.getDateSeen ? true : false;
-  assert.equal(shouldDeliver, true, "⑤-b 未 Get-Date → turn/end 投递（定案）");
-}
+// ═══ 场景⑤-b（已移除，改由 rule2-delivery.test.mjs 覆盖）═══
+// 原处是"在测试里自写一遍撤销判断"的影子断言：手搓 turn 对象 + 自己算三元表达式，不 import 引擎，
+// 因此引擎怎么改它都恒绿（护栏失效）。现由 rule2-delivery.test.mjs 用 handleSessionEvent 驱动
+// 真实回合覆盖：按 lane 记账 / 回合末只撤 getdate / evidence 照投 / 剩余原因合并一条投递。
 
 // ═══ 场景⑥ 意图（A1/A3）：事故原文回放 ═══
 {
