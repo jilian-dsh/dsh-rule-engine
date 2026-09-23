@@ -184,7 +184,7 @@ dsh plugin --profile web add dsh-rule-engine
 - 跨工具一致性：同一敏感操作经 `edit` / `write` / `str_replace_editor` / `pwsh` 必须得到相同结论；
 - 命令输出静默错误检测：全 false/0/null 或与上一条完全一致时审计 ＋ 注入提醒，不阻断；
 - 消息注入判别：`user/message` 先判来源，系统/插件注入一律跳过（不覆盖回合状态、不产生授权），并留审计；
-- 工具分类制：工具按 analysis / artifact / mutating / unknown 四类判定；未写 `unknownPolicy` 时首次调用默认拒绝，写成 `ask` 才询问；已归类的只读命令按命令链分段判定后无条件放行；
+- 工具分类制：工具按 analysis / artifact / mutating / unknown 四类判定；未写 `unknownPolicy` 或写成 `off` 时首次调用放行并留审计，写成 `deny` 才拒绝，写成 `ask` 才询问；取值不区分大小写和首尾空格，认不出的取值按拒绝处理；已归类的只读命令按命令链分段判定后无条件放行；
 - 授权双轨：自动来源授权绝不写入全局池（全局仅显式白名单）；
 - 技能目录实时联动、D 级自证泛化、审计日志集中于插件私有状态文件、守卫使用单调拒绝（模型无法自行绕过）。
 

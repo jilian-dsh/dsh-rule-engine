@@ -154,7 +154,9 @@ const tests = [
   // 件 B（2026-09-22）：契约拒绝与未归类工具拒绝写入 cardHits（回合卡片不再 clear）
   "./contract-card-hits.test.mjs",
   // 执行单 3-4 已选 (b)（2026-09-22）：被拦调用类型 → ask 授权类别（lastDeniedType ＋ 双类兜底）
-  "./ask-auth-class.test.mjs"
+  "./ask-auth-class.test.mjs",
+  // unknownPolicy 取值矩阵（默认口径）：自设 DSH_HOME + import index.js（该支调用时现读配置）——固定末尾
+  "./unknown-policy.test.mjs"
 ];
 
 for (const t of tests) {

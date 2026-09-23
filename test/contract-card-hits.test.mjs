@@ -8,7 +8,7 @@
 //   现盘：契约钩子（lib/index.js L2032–2043）只 audit 不写 cardHits → 本夹具应红。
 //   未归类工具本枪不测（按用户口径）。
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getSessionState } from "../lib/core/state.js";
@@ -87,6 +87,10 @@ assert.ok(
   state.deniedKeys instanceof Set && state.deniedKeys.has(expectKey),
   `契约拒绝应记入 deniedKeys（键「${expectKey}」）——现盘契约钩子绕开 guard，不记此键`
 );
+
+// ── 测试前提：未归类工具那一支改为调用时现读配置——本夹具测的是拒绝路径，
+//    故在断言⑤之前往自己的临时 DSH_HOME 放一份显式 deny 的配置；断言本身不变。 ──
+writeFileSync(join(dir, "rule-engine.json"), JSON.stringify({ unknownPolicy: "deny" }, null, 2) + "\n", "utf8");
 
 // ── 断言 ⑤（件 B 后半）：未归类工具拒绝同样进卡片 ──
 const sid2 = "card2";
